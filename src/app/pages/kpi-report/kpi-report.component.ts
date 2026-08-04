@@ -165,7 +165,7 @@ interface CollaboratorRateRow {
   <div *ngIf="!isLoading && metrics" class="space-y-8">
     
     <!-- METRIC 1: PO-KPI-01 - Porcentaje de Tiempo en Desarrollo de SW -->
-    <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-indigo-650 overflow-hidden shadow-lg animate-in fade-in duration-500 p-6 space-y-6">
+    <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-indigo-600 overflow-hidden shadow-lg animate-in fade-in duration-500 p-6 space-y-6">
       <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div class="flex items-center gap-3">
           <div class="p-2.5 bg-indigo-500 rounded-xl shadow-md text-white">
@@ -176,7 +176,7 @@ interface CollaboratorRateRow {
               PO-KPI-01
             </span>
             <h3 class="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight mt-0.5">Porcentaje de tiempo en Desarrollo de SW</h3>
-            <p class="text-xs text-slate-400 dark:text-slate-400">Fecha de Actualización: <strong class="text-slate-600 dark:text-slate-350">{{ today | date:'dd/MM/yyyy' }}</strong></p>
+            <p class="text-xs text-slate-400 dark:text-slate-400">Fecha de Actualización: <strong class="text-slate-600 dark:text-slate-400">{{ today | date:'dd/MM/yyyy' }}</strong></p>
           </div>
         </div>
         
@@ -190,7 +190,7 @@ interface CollaboratorRateRow {
       </div>
 
       <!-- Semaphore Reference -->
-      <div class="flex flex-wrap gap-4 text-xs border-t border-slate-100 dark:border-slate-850 pt-4">
+      <div class="flex flex-wrap gap-4 text-xs border-t border-slate-100 dark:border-slate-800 pt-4">
         <span class="font-bold text-slate-700 dark:text-slate-300">Semáforo:</span>
         <div class="flex items-center gap-1.5">
           <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
@@ -222,8 +222,8 @@ interface CollaboratorRateRow {
             <tbody class="divide-y divide-slate-150 dark:divide-slate-800/50 text-sm">
               <tr *ngFor="let row of filteredDevRows" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all">
                 <td class="px-6 py-4 font-bold text-slate-700 dark:text-slate-200">{{ row.name }}</td>
-                <td class="px-6 py-4 text-right font-semibold text-slate-600 dark:text-slate-350">{{ row.devHours | number:'1.2-2' }}</td>
-                <td class="px-6 py-4 text-right font-semibold text-slate-600 dark:text-slate-350">{{ row.nonDevHours | number:'1.2-2' }}</td>
+                <td class="px-6 py-4 text-right font-semibold text-slate-600 dark:text-slate-400">{{ row.devHours | number:'1.2-2' }}</td>
+                <td class="px-6 py-4 text-right font-semibold text-slate-600 dark:text-slate-400">{{ row.nonDevHours | number:'1.2-2' }}</td>
                 <td class="px-6 py-4 text-right font-black" [ngClass]="{
                   'text-emerald-600 dark:text-emerald-400': row.status === 'green',
                   'text-amber-600 dark:text-amber-400': row.status === 'yellow',
@@ -268,11 +268,11 @@ interface CollaboratorRateRow {
             <lucide-icon [name]="Layers" size="20"></lucide-icon>
           </div>
           <div>
-            <span class="text-[9px] font-black px-2 py-0.5 rounded bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-350 uppercase tracking-wider">
+            <span class="text-[9px] font-black px-2 py-0.5 rounded bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-400 uppercase tracking-wider">
               ISW-KPI-02
             </span>
             <h3 class="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight mt-0.5">Size Completado</h3>
-            <p class="text-xs text-slate-400 dark:text-slate-400">Fecha de Actualización: <strong class="text-slate-600 dark:text-slate-350">{{ today | date:'dd/MM/yyyy' }}</strong></p>
+            <p class="text-xs text-slate-400 dark:text-slate-400">Fecha de Actualización: <strong class="text-slate-600 dark:text-slate-400">{{ today | date:'dd/MM/yyyy' }}</strong></p>
           </div>
         </div>
         
@@ -280,13 +280,13 @@ interface CollaboratorRateRow {
         <div class="text-xs bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200/60 dark:border-slate-800/60 max-w-md">
           <p class="font-bold text-slate-700 dark:text-slate-200">Objetivo:</p>
           <p class="text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
-            Evaluar el trabajo completado mensual de la construcción de software de MayanSoft para eficientar recursos en los proyectos, mejorar las asignaciones de trabajo y mejorar el proceso de software.
+            Evaluar el trabajo completado mensual de la construcción de software para eficientar recursos en los proyectos, mejorar las asignaciones de trabajo y mejorar el proceso de software.
           </p>
         </div>
       </div>
 
       <!-- Semaphore Reference -->
-      <div class="flex flex-wrap gap-4 text-xs border-t border-slate-100 dark:border-slate-850 pt-4">
+      <div class="flex flex-wrap gap-4 text-xs border-t border-slate-100 dark:border-slate-800 pt-4">
         <span class="font-bold text-slate-700 dark:text-slate-300">Semáforo:</span>
         <div class="flex items-center gap-1.5">
           <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
@@ -358,11 +358,11 @@ interface CollaboratorRateRow {
             <lucide-icon [name]="TrendingUp" size="20"></lucide-icon>
           </div>
           <div>
-            <span class="text-[9px] font-black px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-350 uppercase tracking-wider">
+            <span class="text-[9px] font-black px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 uppercase tracking-wider">
               ISW-KPI-03
             </span>
             <h3 class="text-lg font-black text-slate-800 dark:text-white uppercase tracking-tight mt-0.5">Tasa de desarrollo (Developing)</h3>
-            <p class="text-xs text-slate-400 dark:text-slate-400">Fecha de Actualización: <strong class="text-slate-600 dark:text-slate-350">{{ today | date:'dd/MM/yyyy' }}</strong></p>
+            <p class="text-xs text-slate-400 dark:text-slate-400">Fecha de Actualización: <strong class="text-slate-600 dark:text-slate-400">{{ today | date:'dd/MM/yyyy' }}</strong></p>
           </div>
         </div>
         
@@ -370,13 +370,13 @@ interface CollaboratorRateRow {
         <div class="text-xs bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200/60 dark:border-slate-800/60 max-w-md">
           <p class="font-bold text-slate-700 dark:text-slate-200">Objetivo:</p>
           <p class="text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
-            Evaluar el rendimiento de la productividad en la construcción de software de MayanSoft para mejorar la desviación de las estimaciones, seguimiento técnico de cada colaborador, eficientar recursos humanos en los proyectos y mejorar el proceso de desarrollo.
+            Evaluar el rendimiento de la productividad en la construcción de software para mejorar la desviación de las estimaciones, seguimiento técnico de cada colaborador, eficientar recursos humanos en los proyectos y mejorar el proceso de desarrollo.
           </p>
         </div>
       </div>
 
       <!-- Semaphore Reference -->
-      <div class="flex flex-wrap gap-4 text-xs border-t border-slate-100 dark:border-slate-850 pt-4">
+      <div class="flex flex-wrap gap-4 text-xs border-t border-slate-100 dark:border-slate-800 pt-4">
         <span class="font-bold text-slate-700 dark:text-slate-300">Semáforo:</span>
         <div class="flex items-center gap-1.5">
           <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
@@ -408,8 +408,8 @@ interface CollaboratorRateRow {
             <tbody class="divide-y divide-slate-150 dark:divide-slate-800/50 text-sm">
               <tr *ngFor="let row of filteredRateRows" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-all">
                 <td class="px-6 py-4 font-bold text-slate-700 dark:text-slate-200">{{ row.name }}</td>
-                <td class="px-6 py-4 text-right font-semibold text-slate-600 dark:text-slate-350">{{ row.devHours | number:'1.2-2' }}</td>
-                <td class="px-6 py-4 text-right font-semibold text-slate-600 dark:text-slate-350">{{ row.totalSize | number:'1.2-2' }}</td>
+                <td class="px-6 py-4 text-right font-semibold text-slate-600 dark:text-slate-400">{{ row.devHours | number:'1.2-2' }}</td>
+                <td class="px-6 py-4 text-right font-semibold text-slate-600 dark:text-slate-400">{{ row.totalSize | number:'1.2-2' }}</td>
                 <td class="px-6 py-4 text-right font-black" [ngClass]="{
                   'text-emerald-600 dark:text-emerald-400': row.status === 'green',
                   'text-amber-600 dark:text-amber-400': row.status === 'yellow',
@@ -448,7 +448,7 @@ interface CollaboratorRateRow {
   </div>
 
   <div *ngIf="!isLoading && !metrics" class="flex flex-col items-center justify-center py-20 text-center space-y-4 opacity-75">
-    <lucide-icon [name]="FileSpreadsheet" size="48" class="text-slate-300 dark:text-slate-650"></lucide-icon>
+    <lucide-icon [name]="FileSpreadsheet" size="48" class="text-slate-300 dark:text-slate-600"></lucide-icon>
     <div class="max-w-md">
       <h3 class="text-lg font-bold text-slate-700 dark:text-slate-300">Ningún Periodo Seleccionado</h3>
       <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Por favor selecciona un Área, Año y Mes en los filtros de arriba para cargar el análisis de los KPIs.</p>
@@ -577,9 +577,16 @@ export class KpiReportComponent implements OnInit {
   }
 
   loadAreas() {
-    this.adoService.getAreas().subscribe(data => {
-      this.areas = data;
-      this.loadData();
+    this.isLoading = true;
+    this.adoService.getAreas().subscribe({
+      next: (data) => {
+        this.areas = data;
+        this.loadData();
+      },
+      error: (err) => {
+        console.error('Failed to load areas', err);
+        this.isLoading = false;
+      }
     });
   }
 
@@ -594,26 +601,16 @@ export class KpiReportComponent implements OnInit {
     const monthStart = Number(this.selectedMonthStart);
     const monthEnd = Number(this.selectedMonthEnd);
 
-    // Determine area path (default to one containing "mayansoft" or fallback)
+    // Determine area path
     let areaPath = this.selectedArea;
     if (!areaPath && this.areas.length > 0) {
-      const msArea = this.areas.find(a => a.path.toLowerCase().includes('mayansoft'));
-      areaPath = msArea ? msArea.path : this.areas[0].path;
+      areaPath = this.areas[0].path;
     }
-    if (!areaPath) areaPath = 'Mayansoft';
-
-    // The second metric only takes into account items from Mayansoft
-    let msAreaPath = '';
-    if (this.areas.length > 0) {
-      const msArea = this.areas.find(a => a.path.toLowerCase().includes('mayansoft'));
-      msAreaPath = msArea ? msArea.path : '';
-    }
-    if (!msAreaPath) msAreaPath = 'Mayansoft';
 
     // Load both tasks (first metric) and monthlyItems (second metric) in parallel
     forkJoin({
       tasks: this.adoService.getKpiTasksForMonth(areaPath, year, monthStart, monthEnd),
-      monthlyItems: this.adoService.getKpisForMonth(msAreaPath, year, monthStart, monthEnd)
+      monthlyItems: this.adoService.getKpisForMonth(areaPath, year, monthStart, monthEnd)
     }).subscribe({
       next: ({ tasks, monthlyItems }) => {
         this.processKpis(tasks, monthlyItems, year, monthStart, monthEnd);
@@ -662,9 +659,9 @@ export class KpiReportComponent implements OnInit {
         period,
         completedWork: work,
         isDev: this.isDevelopmentTask({
-          type: t.fields['System.WorkItemType'] || '',
+          type: t.fields['Custom.TaskType'] || t.fields['Microsoft.VSTS.CMMI.TaskType'] || t.fields['System.WorkItemType'] || '',
           title: t.fields['System.Title'] || '',
-          discipline: t.fields['Microsoft.VSTS.Common.Activity'] || ''
+          discipline: t.fields['Custom.Discipline'] || t.fields['Microsoft.VSTS.Common.Discipline'] || t.fields['Microsoft.VSTS.Common.Activity'] || ''
         })
       });
     });
@@ -690,7 +687,6 @@ export class KpiReportComponent implements OnInit {
       const isReqOrBugOrFt = ['User Story', 'Requirement', 'Product Backlog Item', 'Requisito', 'Bug', 'Defecto', 'Feature'].includes(type);
       const isResolvedOrClosed = ['Closed', 'Resolved', 'Done', 'Completed'].includes(status);
       const isSizeValid = size > 1 && size < 56;
-      const isMayansoft = areaPath.toLowerCase().includes('mayansoft');
 
       // Smart parent logic:
       let hasNoParent = false;
@@ -705,7 +701,7 @@ export class KpiReportComponent implements OnInit {
         hasNoParent = !parentId || parentType === 'Feature';
       }
 
-      const accepted = isReqOrBugOrFt && isResolvedOrClosed && hasNoParent && isSizeValid && isMayansoft;
+      const accepted = isReqOrBugOrFt && isResolvedOrClosed && hasNoParent && isSizeValid;
       const assignedTo = i.fields['System.AssignedTo'];
       const collaboratorName = assignedTo ? (typeof assignedTo === 'object' ? assignedTo.displayName : assignedTo) : 'Sin asignar';
 
@@ -719,7 +715,7 @@ export class KpiReportComponent implements OnInit {
 
         this.allSizeRecords.push({
           collaborator: collaboratorName,
-          project: areaPath || 'OPE20',
+          project: areaPath || 'General',
           period,
           size: size,
           id: i.id.toString(),

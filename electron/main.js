@@ -49,7 +49,7 @@ function createWindow() {
     show: false
   });
 
-  const isDev = process.env.ELECTRON_IS_DEV === 'true';
+  const isDev = (process.env.ELECTRON_IS_DEV || '').trim() === 'true';
 
   if (isDev) {
     win.loadURL('http://localhost:4200');

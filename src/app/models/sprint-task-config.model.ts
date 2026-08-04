@@ -39,10 +39,12 @@ export interface TaskDefinition {
 
 export const TASK_DEFINITIONS: TaskDefinition[] = [
   // --- DEV ---
+  { taskCode: '01.00', name: 'Entendimiento',                     section: 'dev',     defaultPct: 0.02, isOptional: true },
   { taskCode: '01.01', name: 'Elaboración de código',             section: 'dev',     defaultPct: 0.80, isOptional: false },
-  { taskCode: '01.03', name: 'Review',                            section: 'dev',     defaultPct: 0.05, isOptional: true },
-  { taskCode: '01.04', name: 'Peer Review',                       section: 'dev',     defaultPct: 0.05, isOptional: true },
+  { taskCode: '01.03', name: 'Review',                            section: 'dev',     defaultPct: 0.03, isOptional: true },
+  { taskCode: '01.04', name: 'Peer Review',                       section: 'dev',     defaultPct: 0.03, isOptional: true },
   { taskCode: '01.05', name: 'Pruebas funcionales ISW',           section: 'dev',     defaultPct: 0.10, isOptional: false },
+  { taskCode: '01.06', name: 'Posmortem',                         section: 'dev',     defaultPct: 0.02, isOptional: true },
   { taskCode: '01.07', name: 'Corrección de defectos de Peer Review',   section: 'dev', defaultPct: 0, isOptional: true },
   { taskCode: '01.07', name: 'Corrección de defectos de pruebas ISW',   section: 'dev', defaultPct: 0, isOptional: true },
 
@@ -51,10 +53,11 @@ export const TASK_DEFINITIONS: TaskDefinition[] = [
   { taskCode: '02',    name: 'Ejecución de pruebas',              section: 'testing', defaultPct: 0.20, isOptional: false },
   { taskCode: '03',    name: 'Registro de defectos',              section: 'testing', defaultPct: 0.20, isOptional: false },
   { taskCode: '04',    name: 'Peer Review de especificación',     section: 'testing', defaultPct: 0.20, isOptional: true },
-  { taskCode: '04',    name: 'Peer Review Test y especificación', section: 'testing', defaultPct: 0.20, isOptional: true },
+  { taskCode: '04',    name: 'Peer Review Test',                  section: 'testing', defaultPct: 0.20, isOptional: true },
 
   // --- OTRAS ---
-  { taskCode: '01.00', name: 'Análisis',                          section: 'otras',   defaultPct: 0.34, isOptional: true },
+  { taskCode: '00',    name: 'Análisis',                          section: 'otras',   defaultPct: 0.34, isOptional: true },
+  { taskCode: '01',    name: 'Especificación',                    section: 'otras',   defaultPct: 0,    isOptional: true },
   { taskCode: '01.00', name: 'Integración UAT',                   section: 'otras',   defaultPct: 0.33, isOptional: true },
   { taskCode: '01.00', name: 'Documentación y videos capacitación', section: 'otras', defaultPct: 0.33, isOptional: true },
 ];

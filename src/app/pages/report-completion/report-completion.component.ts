@@ -14,7 +14,7 @@ import { FormsModule } from '@angular/forms';
   template: `
     <div class="p-4 md:p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
       <!-- Header -->
-      <header class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-850 pb-6">
+      <header class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-6">
         <div>
           <h2 class="text-2xl md:text-3xl font-black text-slate-800 dark:text-white tracking-tight flex items-center gap-3 flex-wrap">
             <div class="p-2 bg-indigo-500 rounded-xl shadow-lg shadow-indigo-500/20 shrink-0">
@@ -77,11 +77,11 @@ import { FormsModule } from '@angular/forms';
                   </thead>
                   <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                     <tr *ngFor="let item of reportItems" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                      <td class="px-4 py-3">
-                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase"
+                      <td class="px-4 py-3 border-r border-slate-100 dark:border-slate-800 w-24">
+                        <span class="inline-flex items-center justify-center w-full px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider"
                           [ngClass]="{
-                            'bg-purple-100 text-purple-700': item.type==='FT', 
-                            'bg-blue-100 text-blue-700': item.type==='US',
+                            'bg-purple-100 text-purple-700': item.type==='FEATURE', 
+                            'bg-blue-100 text-blue-700': item.type==='REQ',
                             'bg-rose-100 text-rose-700': item.type==='Bug'
                           }">
                           {{ item.type }}
@@ -247,18 +247,26 @@ export class ReportCompletionComponent implements OnInit {
   }
 
   loadIterations() {
+    this.loading = true;
     this.adoService.getIterationNodes().subscribe({
       next: (iters) => {
         this.iterations = iters;
         
         if (!this.selectedIteration && iters.length > 0) {
           this.selectedIteration = iters[iters.length - 1].id;
+          this.loading = false;
           this.loadData();
         } else if (this.selectedIteration) {
+          this.loading = false;
           this.loadData();
+        } else {
+          this.loading = false;
         }
       },
-      error: (err) => console.error('Report: Failed to load iterations', err)
+      error: (err) => {
+        console.error('Report: Failed to load iterations', err);
+        this.loading = false;
+      }
     });
   }
 
@@ -273,17 +281,8 @@ export class ReportCompletionComponent implements OnInit {
     this.totalPlanned = 0;
     this.totalActual = 0;
 
-    // Failsafe timeout to prevent infinite loading
-    const failsafe = setTimeout(() => {
-      if (this.loading) {
-        this.loading = false;
-        alert('Tiempo de espera agotado al conectar con Azure DevOps.');
-      }
-    }, 25000);
-
     this.adoService.getMetrics(this.selectedIteration).subscribe({
       next: (m) => {
-        clearTimeout(failsafe);
         this.metrics = m;
         this.calculateReportData();
         this.loading = false;
@@ -297,9 +296,9 @@ export class ReportCompletionComponent implements OnInit {
         }
       },
       error: (err) => {
-        clearTimeout(failsafe);
         console.error('Report: Error loading metrics', err);
         this.loading = false;
+        alert('Hubo un error de conexión con Azure DevOps. Intente de nuevo.');
       }
     });
   }
@@ -313,22 +312,30 @@ export class ReportCompletionComponent implements OnInit {
 
     // Combine US and FT
     (this.metrics.developmentRate.items || []).forEach(i => {
-      // Filter tasks to only include THE SPECIFIC SUBTASKS requested (01.00 to 01.05)
+      // Filter tasks to only include Planned / Development tasks
       const devTasks = (i.tasks || []).filter(t => {
-        const title = (t.title || '').toLowerCase();
+        const type = (t.type || '').toLowerCase().trim();
+        const discipline = (t.discipline || '').toLowerCase().trim();
         
-        // Strictly include only the 4 requested construction tasks (excluding 01.00 Análisis)
-        return title.includes('01.01') || // Código
-               title.includes('01.03') || // Review
-               title.includes('01.04') || // Peer Review
-               title.includes('01.05');   // Pruebas ISW
+        const isPlannedType = type === 'planned';
+        const isCorrectiveType = type === 'corrective action';
+        const isDevDiscipline = discipline === 'development' || discipline === 'development coding';
+        
+        return (isPlannedType || isCorrectiveType) && isDevDiscipline;
       });
 
-      const itemPlanned = devTasks.reduce((s, t) => s + (t.originalEstimate || 0), 0);
+      const itemPlanned = devTasks.reduce((s, t) => {
+        const type = (t.type || '').toLowerCase().trim();
+        if (type === 'planned') {
+          return s + (t.originalEstimate || 0);
+        }
+        return s;
+      }, 0);
+
       const itemActual = devTasks.reduce((s, t) => s + (t.completedWork || 0), 0);
 
       items.push({
-        type: i.type === 'Feature' ? 'FT' : 'US',
+        type: i.type === 'Feature' ? 'FEATURE' : 'REQ',
         id: i.id,
         planned: itemPlanned,
         actual: itemActual,
@@ -336,6 +343,14 @@ export class ReportCompletionComponent implements OnInit {
       });
       plannedSum += itemPlanned;
       actualSum += itemActual;
+    });
+
+    items.sort((a, b) => {
+      // Primero ordenar por tipo (FEATURE antes que REQ)
+      if (a.type === 'FEATURE' && b.type !== 'FEATURE') return -1;
+      if (a.type !== 'FEATURE' && b.type === 'FEATURE') return 1;
+      // Si son del mismo tipo, ordenar por ID de menor a mayor
+      return Number(a.id || 0) - Number(b.id || 0);
     });
 
     this.reportItems = items;

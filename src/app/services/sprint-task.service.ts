@@ -101,7 +101,7 @@ export class SprintTaskService {
   }
 
   private buildTaskItems(wi: any, size: number, hours: { dev: number; testing: number; otras: number }, defaultUser: string): DraftTaskItem[] {
-    const prefix = wi.type === 'Feature' ? 'FT' : 'US';
+    const prefix = wi.type === 'Feature' ? 'FEATURE' : 'REQ';
     const id = wi.id;
 
     return TASK_DEFINITIONS.map(def => {
@@ -119,7 +119,7 @@ export class SprintTaskService {
         taskCode: def.taskCode,
         name: def.name,
         section: def.section,
-        selected: !def.isOptional || def.defaultPct! > 0,
+        selected: false,
         hours: taskHours,
         assignedTo: defaultUser
       };
@@ -159,7 +159,7 @@ export class SprintTaskService {
 
   /** Construye el título de la tarea según formato definido */
   buildTaskTitle(wi: WorkItemDraftConfig, task: DraftTaskItem): string {
-    const prefix = wi.workItemType === 'Feature' ? 'FT' : 'US';
+    const prefix = wi.workItemType === 'Feature' ? 'FEATURE' : 'REQ';
     return `${prefix} ${wi.workItemId}: Task ${task.taskCode} ${task.name}`;
   }
 

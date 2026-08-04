@@ -22,7 +22,7 @@ export class AIService {
         const planned = (i.tasks || []).reduce((s, t) => s + (t.originalEstimate || 0), 0);
         const actual = i.effort;
         const variance = planned > 0 ? ((actual - planned) / planned * 100).toFixed(1) : '0';
-        return `  - ${i.type === 'Feature' ? 'FT' : 'US'} #${i.id} | Size: ${i.size} | Est. Original: ${planned.toFixed(1)}h | Real: ${actual.toFixed(1)}h | Var: ${variance}% | ISW: ${i.isw}`;
+        return `  - ${i.type === 'Feature' ? 'FEATURE' : 'REQ'} #${i.id} | Size: ${i.size} | Est. Original: ${planned.toFixed(1)}h | Real: ${actual.toFixed(1)}h | Var: ${variance}% | ISW: ${i.isw}`;
       })
       .join('\n');
 
@@ -42,7 +42,7 @@ export class AIService {
     }).join('\n');
 
     const prompt = `
-      Actúa como un Auditor de Calidad CMMI Nivel 5 del proyecto OPE20 Bepensa. Analiza estas métricas y devuelve el resultado en ESPAÑOL. 
+      Actúa como un Auditor de Calidad CMMI Nivel 5 del proyecto ${config.azure.project}. Analiza estas métricas y devuelve el resultado en ESPAÑOL. 
 
       CONTEXTO DEL EQUIPO:
       - Todos los integrantes del equipo de desarrollo son ISW nivel MID (nivel intermedio).
@@ -71,14 +71,14 @@ export class AIService {
               diffDays = Math.max(1, Math.round((closedMs - endMs) / (1000 * 60 * 60 * 24)));
               if (diffDays > maxDays) maxDays = diffDays;
               deliveryStatus = 'Fase Extendida (' + diffDays + 'd retraso)';
-              lateItems.push('  - ' + (item.type === 'Feature' ? 'FT' : 'US') + ' #' + item.id + ' | ISW: ' + item.isw + ' | Cerrado: ' + (item.closedDate ? item.closedDate.substring(0, 10) : '?') + ' | ~' + diffDays + 'd tarde');
+              lateItems.push('  - ' + (item.type === 'Feature' ? 'FEATURE' : 'REQ') + ' #' + item.id + ' | ISW: ' + item.isw + ' | Cerrado: ' + (item.closedDate ? item.closedDate.substring(0, 10) : '?') + ' | ~' + diffDays + 'd tarde');
             }
           } else {
             open++;
           }
           
           const tasksInfo = (item.tasks || []).map((t: any) => 'Tarea #' + t.id + ': "' + t.title + '" (Est: ' + (t.originalEstimate || 0) + 'h, Real: ' + (t.completedWork || 0) + 'h, Estado: ' + t.status + ')').join('; ');
-          detailedItemsList.push('  * [' + (item.type === 'Feature' ? 'FT' : 'US') + ' #' + item.id + '] "' + item.title + '" - ISW: ' + item.isw + ' | Estado: ' + item.status + ' | Entrega: ' + deliveryStatus + ' | Size: ' + item.size + ' | Tareas: [' + tasksInfo + ']');
+          detailedItemsList.push('  * [' + (item.type === 'Feature' ? 'FEATURE' : 'REQ') + ' #' + item.id + '] "' + item.title + '" - ISW: ' + item.isw + ' | Estado: ' + item.status + ' | Entrega: ' + deliveryStatus + ' | Size: ' + item.size + ' | Tareas: [' + tasksInfo + ']');
         });
 
         const eedBugs = metrics.defectRemovalEfficiency?.bugsList || [];
@@ -187,7 +187,7 @@ ${iswSummary}
       const p = devTasks.reduce((s, t) => s + (t.originalEstimate || 0), 0);
       const a = devTasks.reduce((s, t) => s + (t.completedWork || 0), 0);
 
-      itemsList.push(`${i.type === 'Feature' ? 'FT' : 'US'} | ${i.id} | ${p.toFixed(2)} | ${a.toFixed(2)}`);
+      itemsList.push(`${i.type === 'Feature' ? 'FEATURE' : 'REQ'} | ${i.id} | ${p.toFixed(2)} | ${a.toFixed(2)}`);
       calcPlanned += p;
       calcActual += a;
     });
@@ -200,10 +200,10 @@ ${iswSummary}
     const iteration = metrics.iterationName || 'Sprint X';
 
     const prompt = `
-      Actúa como el Responsable de Calidad y Planeación. Genera un REPORTE DE FINALIZACIÓN DE CONSTRUCCIÓN para el correo de David.
+      Actúa como el Responsable de Calidad y Planeación. Genera un REPORTE DE FINALIZACIÓN DE CONSTRUCCIÓN para el correo correspondiente.
       El formato debe ser EXACTAMENTE el siguiente, llenando los datos con la información proporcionada:
 
-      Buen día David,
+      Buen día,
 
       de acuerdo al proceso te envío el reporte de finalización de construcción del sprint ${iteration}
 
@@ -213,7 +213,7 @@ ${iswSummary}
       Total | | ${totalPlanned.toFixed(2)} | ${totalActual.toFixed(2)}
 
       La construcción de las historias de usuario finalizó con una diferencia de ${Math.abs(parseFloat(diff))} horas ${parseFloat(diff) > 0 ? 'menos' : 'más'}, lo que representa una desviación del ${Math.abs(parseFloat(deviation))}% respecto al tiempo planeado. 
-      [Añade aquí 2 o 3 oraciones justificando la desviación basándote en los ítems analizados. Menciona los IDs específicos de US/FT que se excedieron del tiempo planeado como causa de la desviación, y menciona si hubo bugs. Sé analítico y profesional.]
+      [Añade aquí 2 o 3 oraciones justificando la desviación basándote en los ítems analizados. Menciona los IDs específicos de REQ/FEATURE que se excedieron del tiempo planeado como causa de la desviación, y menciona si hubo bugs. Sé analítico y profesional.]
 
       Adjunto la gráfica del sprint burndown. Sin embargo, aún quedan tareas administrativas que no se han cerrado.
 
@@ -251,7 +251,7 @@ ${iswSummary}
       contextStr += `Items de Trabajo:\n`;
       metrics.developmentRate.items.forEach(i => {
         const est = (i.tasks || []).reduce((s, t) => s + (t.originalEstimate || 0), 0);
-        contextStr += `  * [${i.type === 'Feature' ? 'FT' : 'US'} #${i.id}] ${i.title} - ISW: ${i.isw} | Estado: ${i.status} | Estimado: ${est.toFixed(1)}h | Real: ${i.effort.toFixed(1)}h | Size: ${i.size}\n`;
+        contextStr += `  * [${i.type === 'Feature' ? 'FEATURE' : 'REQ'} #${i.id}] ${i.title} - ISW: ${i.isw} | Estado: ${i.status} | Estimado: ${est.toFixed(1)}h | Real: ${i.effort.toFixed(1)}h | Size: ${i.size}\n`;
       });
     }
 
@@ -343,7 +343,7 @@ ${iswSummary}
     }
 
     const askPrompt = `
-      Actúa como un Asistente Virtual Experto en Métricas CMMI Nivel 5 para el proyecto OPE20 Bepensa.
+      Actúa como un Asistente Virtual Experto en Métricas CMMI Nivel 5 para el proyecto ${config.azure.project}.
       Tu objetivo es responder de manera clara, concisa y precisa a las preguntas del usuario sobre los datos y métricas que se muestran en el dashboard actual.
 
       ${contextStr}
@@ -370,10 +370,10 @@ ${iswSummary}
 
   private callOpenAI(key: string, model: string, prompt: string): Observable<string> {
     return this.http.post<any>('https://api.openai.com/v1/chat/completions', {
-      model: model || 'gpt-4',
+      model: (model || 'gpt-4').trim(),
       messages: [{ role: 'user', content: prompt }]
     }, {
-      headers: { Authorization: `Bearer ${key}` }
+      headers: { Authorization: `Bearer ${(key || '').trim()}` }
     }).pipe(
       timeout(140000),
       retry({ count: 1, delay: 2000 }),
@@ -390,9 +390,12 @@ ${iswSummary}
   }
 
   private callGemini(key: string, model: string, prompt: string): Observable<string> {
-    const modelName = model || 'gemini-1.5-flash';
-    return this.http.post<any>(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${key}`, {
+    const modelName = (model || 'gemini-1.5-flash').trim().replace(/^models\//, '');
+    const cleanKey = (key || '').trim();
+    return this.http.post<any>(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`, {
       contents: [{ parts: [{ text: prompt }] }]
+    }, {
+      headers: { 'x-goog-api-key': cleanKey }
     }).pipe(
       timeout(90000),
       retry({ count: 1, delay: 2000 }),

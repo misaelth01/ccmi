@@ -62,7 +62,7 @@ type StepState = 'select-sprint' | 'configure';
       transition: box-shadow .2s;
     }
     .wi-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.08); }
-    .dark .wi-card { background: #1e293b; border-color: #334155; }
+    :host-context(.dark) .wi-card { background: #1e293b; border-color: #334155; }
 
     .task-row {
       display: flex; align-items: center; gap: 8px;
@@ -71,11 +71,14 @@ type StepState = 'select-sprint' | 'configure';
       transition: background .15s;
     }
     .task-row:hover { background: #f8fafc; }
-    .dark .task-row:hover { background: #0f172a; }
+    :host-context(.dark) .task-row:hover { background: #0f172a; }
 
     .task-row.selected-dev     { background: #eef2ff; }
     .task-row.selected-testing { background: #ecfdf5; }
     .task-row.selected-otras   { background: #fffbeb; }
+    :host-context(.dark) .task-row.selected-dev     { background: rgba(99, 102, 241, 0.15); }
+    :host-context(.dark) .task-row.selected-testing { background: rgba(34, 197, 94, 0.15); }
+    :host-context(.dark) .task-row.selected-otras   { background: rgba(245, 158, 11, 0.15); }
 
     .hours-input {
       width: 70px; text-align: center;
@@ -85,7 +88,7 @@ type StepState = 'select-sprint' | 'configure';
       transition: border-color .15s;
     }
     .hours-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
-    .dark .hours-input { background: #0f172a; border-color: #334155; color: #f1f5f9; }
+    :host-context(.dark) .hours-input { background: #0f172a; border-color: #334155; color: #f1f5f9; }
 
     .user-select {
       border: 1.5px solid #e2e8f0; border-radius: 8px;
@@ -94,7 +97,7 @@ type StepState = 'select-sprint' | 'configure';
       transition: border-color .15s; cursor: pointer;
     }
     .user-select:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
-    .dark .user-select { background: #0f172a; border-color: #334155; color: #f1f5f9; }
+    :host-context(.dark) .user-select { background: #0f172a; border-color: #334155; color: #f1f5f9; }
 
     .import-btn {
       background: linear-gradient(135deg, #4f46e5, #7c3aed);
@@ -116,8 +119,8 @@ type StepState = 'select-sprint' | 'configure';
       transition: all .2s;
     }
     .save-btn:hover { background: #eef2ff; }
-    .dark .save-btn { background: transparent; color: #818cf8; border-color: #818cf8; }
-    .dark .save-btn:hover { background: rgba(99,102,241,.15); }
+    :host-context(.dark) .save-btn { background: transparent; color: #818cf8; border-color: #818cf8; }
+    :host-context(.dark) .save-btn:hover { background: rgba(99,102,241,.15); }
 
     @keyframes fadeSlideIn {
       from { opacity: 0; transform: translateY(12px); }
@@ -143,7 +146,7 @@ type StepState = 'select-sprint' | 'configure';
       </div>
       <div>
         <h2 class="text-2xl font-bold text-slate-800 dark:text-white">Configurar Sprint</h2>
-        <p class="text-sm text-slate-500 dark:text-slate-400">Preconfigura tareas para US/FT antes de importar a Azure DevOps</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400">Preconfigura tareas para REQ/FEATURE antes de importar a Azure DevOps</p>
       </div>
     </div>
   </header>
@@ -216,7 +219,7 @@ type StepState = 'select-sprint' | 'configure';
           style="padding: 10px 20px; font-size: 14px;">
           <lucide-icon *ngIf="!loadingItems" [name]="RefreshCw" size="16"></lucide-icon>
           <lucide-icon *ngIf="loadingItems" [name]="Loader2" size="16" class="spinner"></lucide-icon>
-          {{ loadingItems ? 'Cargando...' : 'Cargar US / FT del Sprint' }}
+          {{ loadingItems ? 'Cargando...' : 'Cargar REQ / FEATURE del Sprint' }}
         </button>
       </div>
     </div>
@@ -319,9 +322,12 @@ type StepState = 'select-sprint' | 'configure';
           </div>
           <div class="min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="text-xs font-bold" [ngClass]="wi.workItemType === 'Feature' ? 'text-purple-600 dark:text-purple-400' : 'text-indigo-600 dark:text-indigo-400'">
-                {{ wi.workItemType === 'Feature' ? 'FT' : 'US' }} #{{ wi.workItemId }}
-              </span>
+              <div class="flex items-center gap-2">
+                <div class="w-1.5 h-1.5 rounded-full" [ngClass]="wi.workItemType === 'Feature' ? 'bg-purple-500' : 'bg-blue-500'"></div>
+                <span class="text-xs font-bold" [ngClass]="wi.workItemType === 'Feature' ? 'text-purple-600 dark:text-purple-400' : 'text-indigo-600 dark:text-indigo-400'">
+                  {{ wi.workItemType === 'Feature' ? 'FEATURE' : 'REQ' }} #{{ wi.workItemId }}
+                </span>
+              </div>
               <span class="badge-size" [ngClass]="'badge-' + wi.sizeSource">
                 SIZE {{ wi.size > 0 ? wi.size : '?' }}
                 <span *ngIf="wi.sizeSource === 'discussion'"> · discussion</span>
@@ -622,7 +628,7 @@ export class SprintConfigComponent implements OnInit {
         const items = metrics.developmentRate?.items || [];
 
         if (items.length === 0) {
-          this.showToast('No se encontraron US/FT en este sprint.', 'error');
+          this.showToast('No se encontraron REQ/FEATURE en este sprint.', 'error');
           return;
         }
 

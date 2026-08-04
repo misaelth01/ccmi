@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { ConfigService } from './config.service';
-import { Observable, forkJoin, of, catchError, switchMap, map, timeout } from 'rxjs';
+import { Observable, forkJoin, of, catchError, switchMap, map, timeout, shareReplay } from 'rxjs';
 import { CMMIMetrics } from '../models/metrics.model';
 
 @Injectable({
@@ -20,45 +20,71 @@ export class AzureDevOpsService {
     });
   }
 
+  private cachedIterations$: Observable<any[]> | null = null;
+  private cachedAreas$: Observable<any[]> | null = null;
+
   getIterationNodes(): Observable<any[]> {
+    if (this.cachedIterations$) {
+      return this.cachedIterations$;
+    }
     const config = this.configService.getConfig();
     if (!config || !config.azure.organization) return of([]);
-    return this.http.get<any>(`https://dev.azure.com/${config.azure.organization}/${config.azure.project}/_apis/wit/classificationnodes/Iterations?$depth=5&api-version=7.0`, { headers: this.getHeaders() })
+    
+    this.cachedIterations$ = this.http.get<any>(`https://dev.azure.com/${config.azure.organization}/${config.azure.project}/_apis/wit/classificationnodes/Iterations?$depth=5&api-version=7.0`, { headers: this.getHeaders() })
       .pipe(
         map(res => {
           const nodes = this.flattenNodes(res);
           return nodes
-            .filter(node => node.path.toLowerCase().includes('mayansoft'))
             .sort((a: any, b: any) => {
               const da = a.startDate ? new Date(a.startDate).getTime() : 0;
               const db = b.startDate ? new Date(b.startDate).getTime() : 0;
               return da - db; // ascending: oldest → newest
             });
         }),
-        catchError(() => of([]))
+        catchError((err) => {
+          console.error('Failed to fetch iterations', err);
+          this.cachedIterations$ = null;
+          return of([]);
+        }),
+        shareReplay(1)
       );
+      
+    return this.cachedIterations$;
   }
 
   getAreas(): Observable<any[]> {
+    if (this.cachedAreas$) {
+      return this.cachedAreas$;
+    }
     const config = this.configService.getConfig();
     if (!config || !config.azure.organization) return of([]);
-    return this.http.get<any>(`https://dev.azure.com/${config.azure.organization}/${config.azure.project}/_apis/wit/classificationnodes/Areas?$depth=2&api-version=7.0`, { headers: this.getHeaders() })
+    
+    this.cachedAreas$ = this.http.get<any>(`https://dev.azure.com/${config.azure.organization}/${config.azure.project}/_apis/wit/classificationnodes/Areas?$depth=2&api-version=7.0`, { headers: this.getHeaders() })
       .pipe(
-        map(res => this.flattenNodes(res).filter(node => node.path.toLowerCase().includes('mayansoft'))),
-        catchError(() => of([]))
+        map(res => this.flattenNodes(res)),
+        catchError((err) => {
+          console.error('Failed to fetch areas', err);
+          this.cachedAreas$ = null;
+          return of([]);
+        }),
+        shareReplay(1)
       );
+      
+    return this.cachedAreas$;
   }
 
   // iterationPathMap stores GUID -> full iteration path for fast lookup
   private iterationPathMap = new Map<string, string>();
+  private iterationDetailsMap = new Map<string, any>();
 
   private flattenNodes(node: any, parentPath: string = ''): any[] {
     // ADO path from classificationnodes already includes project name, e.g:
     // \Bepensa - DSD Bebidas - OpeCD 2.0\Iteration\Sprint 36
     const nodePath = node.path || (parentPath ? `${parentPath}\\${node.name}` : node.name);
     const attrs = node.attributes || {};
-    const entry = { id: node.identifier, name: node.name, path: nodePath, startDate: attrs.startDate || '' };
+    const entry = { id: node.identifier, name: node.name, path: nodePath, startDate: attrs.startDate || '', finishDate: attrs.finishDate || '' };
     this.iterationPathMap.set(node.identifier, nodePath);
+    this.iterationDetailsMap.set(nodePath, entry);
     let result: any[] = [entry];
     if (node.children) {
       node.children.forEach((child: any) => {
@@ -100,76 +126,9 @@ export class AzureDevOpsService {
   getMetrics(iterationIdOrPath: string): Observable<CMMIMetrics> {
     const config = this.configService.getConfig();
     if (!config || !config.azure.organization) return of({} as CMMIMetrics);
-
-    const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(iterationIdOrPath);
-
-    if (isGuid) {
-      return this.getDefaultTeam().pipe(
-        timeout(10000),
-        switchMap(teamId => {
-          if (!teamId) {
-            const path = this.iterationPathMap.get(iterationIdOrPath) || iterationIdOrPath;
-            return this.getMetricsWIQL(path);
-          }
-
-          const workItemsUrl = `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/${encodeURIComponent(teamId)}/_apis/work/teamsettings/iterations/${iterationIdOrPath}/workitems?api-version=7.0`;
-          const iterationInfoUrl = `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/${encodeURIComponent(teamId)}/_apis/work/teamsettings/iterations/${iterationIdOrPath}?api-version=7.0`;
-
-
-          return forkJoin({
-            workItems: this.http.get<any>(workItemsUrl, { headers: this.getHeaders() }).pipe(timeout(15000), catchError(e => { console.error('Work items fetch failed', e); return of({ workItemRelations: [] }); })),
-            info: this.http.get<any>(iterationInfoUrl, { headers: this.getHeaders() }).pipe(timeout(15000), catchError(() => of(null)))
-          }).pipe(
-            switchMap(({ workItems, info }) => {
-              const relations: any[] = workItems.workItemRelations || [];
-              if (relations.length === 0) {
-                console.warn('ADO Service: No relations found for this iteration.');
-                return of(this.getEmptyMetrics());
-              }
-              const ids: number[] = relations.filter(r => r.target).map(r => r.target.id);
-              if (ids.length === 0) return of(this.getEmptyMetrics());
-
-              const fields = [
-                'System.Id', 'System.WorkItemType', 'System.Title', 'System.Parent', 'System.AreaPath', 'System.IterationPath',
-                'Microsoft.VSTS.Scheduling.Size', 'Microsoft.VSTS.Scheduling.StoryPoints',
-                'Microsoft.VSTS.Scheduling.CompletedWork', 'Microsoft.VSTS.Scheduling.OriginalEstimate',
-                'Microsoft.VSTS.Scheduling.RemainingWork', 'System.AssignedTo', 'Microsoft.VSTS.Common.Priority',
-                'Microsoft.VSTS.Common.Activity', 'System.CreatedDate', 'Microsoft.VSTS.Common.ClosedDate', 'System.ChangedDate', 'System.State', 'System.Tags'
-              ].join(',');
-
-              return this.getRelatedBugIds(ids).pipe(
-                switchMap(bugIds => {
-                  const allIds = Array.from(new Set([...ids, ...bugIds]));
-                  return this.getWorkItemDetails(allIds, fields).pipe(
-                    timeout(20000),
-                    switchMap(details => this.expandWorkItemsRecursively(details, fields, 3)),
-                    switchMap(details => this.enrichFeaturesWithDiscussionSize(details)),
-                    switchMap(details => {
-                      const absoluteIterationPath = this.iterationPathMap.get(iterationIdOrPath) || iterationIdOrPath;
-                      const metrics = this.processWorkItemsFlat(details, info, absoluteIterationPath, new Set(allIds));
-                      return this.enrichMetricsWithTestExecution(metrics, absoluteIterationPath);
-                    }),
-                    catchError(e => { console.error('ADO Service: Error processing details', e); return of(this.getEmptyMetrics()); })
-                  );
-                })
-              );
-            }),
-            catchError(err => {
-              console.warn('ADO Service: Team API logic failed, trying WIQL fallback');
-              const path = this.iterationPathMap.get(iterationIdOrPath) || iterationIdOrPath;
-              return this.getMetricsWIQL(path);
-            })
-          );
-        }),
-        timeout(30000),
-        catchError(err => {
-          console.error('ADO Service: getMetrics failed completely', err);
-          return of(this.getEmptyMetrics());
-        })
-      );
-    } else {
-      return this.getMetricsWIQL(iterationIdOrPath);
-    }
+    // Bypassing Team API logic entirely per user preference to always query universally via WIQL
+    const path = this.iterationPathMap.get(iterationIdOrPath) || iterationIdOrPath;
+    return this.getMetricsWIQL(path);
   }
 
   private getMetricsWIQL(iterationPath: string): Observable<CMMIMetrics> {
@@ -201,7 +160,7 @@ export class AzureDevOpsService {
       { query: wiqlQuery },
       { headers }
     ).pipe(
-      timeout(15000),
+      timeout(60000),
       switchMap(res => {
         const ids: number[] = (res.workItems || []).map((wi: any) => wi.id);
         if (ids.length === 0) return of(this.getEmptyMetrics());
@@ -211,14 +170,15 @@ export class AzureDevOpsService {
           'Microsoft.VSTS.Scheduling.Size', 'Microsoft.VSTS.Scheduling.StoryPoints',
           'Microsoft.VSTS.Scheduling.CompletedWork', 'Microsoft.VSTS.Scheduling.OriginalEstimate',
           'Microsoft.VSTS.Scheduling.RemainingWork', 'System.AssignedTo', 'Microsoft.VSTS.Common.Priority',
-          'Microsoft.VSTS.Common.Activity', 'System.CreatedDate', 'Microsoft.VSTS.Common.ClosedDate', 'System.ChangedDate', 'System.State', 'System.Tags'
+          'Microsoft.VSTS.Common.Activity', 'System.CreatedDate', 'Microsoft.VSTS.Common.ClosedDate', 'System.ChangedDate', 'System.State', 'System.Tags',
+          'Custom.TaskType', 'Custom.Discipline', 'Microsoft.VSTS.CMMI.TaskType', 'Microsoft.VSTS.Common.Discipline'
         ].join(',');
 
         return this.getRelatedBugIds(ids).pipe(
           switchMap(bugIds => {
             const allIds = Array.from(new Set([...ids, ...bugIds]));
             return this.getWorkItemDetails(allIds, fields).pipe(
-              timeout(20000),
+              timeout(60000),
               switchMap(details => this.expandWorkItemsRecursively(details, fields, 3)),
               switchMap(allDetails => this.enrichFeaturesWithDiscussionSize(allDetails)),
               switchMap(allDetails => {
@@ -339,7 +299,7 @@ export class AzureDevOpsService {
     const config = this.configService.getConfig();
     if (!config) return of([]);
     const headers = this.getHeaders();
-    const batchSize = 200;
+    const batchSize = 50;
     const batches = [];
     for (let i = 0; i < ids.length; i += batchSize) {
       const batchIds = ids.slice(i, i + batchSize).join(',');
@@ -412,9 +372,16 @@ export class AzureDevOpsService {
       console.warn('[DEBUG] 47645 fields:', b47645.fields['System.WorkItemType'], b47645.relations);
     }
 
-    const iterationName = iterationInfo?.name || '';
-    const startDate = iterationInfo?.attributes?.startDate || '';
-    const endDate = iterationInfo?.attributes?.finishDate || '';
+    let iterationName = iterationInfo?.name || '';
+    let startDate = iterationInfo?.attributes?.startDate || '';
+    let endDate = iterationInfo?.attributes?.finishDate || '';
+
+    if ((!startDate || !endDate) && absoluteIterationPath && this.iterationDetailsMap.has(absoluteIterationPath)) {
+      const details = this.iterationDetailsMap.get(absoluteIterationPath);
+      iterationName = iterationName || details.name || '';
+      startDate = startDate || details.startDate || '';
+      endDate = endDate || details.finishDate || '';
+    }
 
     // Bi-directional map of all work item relations
     const relationMap = new Map<number, Set<number>>();
@@ -480,7 +447,7 @@ export class AzureDevOpsService {
     
     parents.forEach(p => {
       const parentId = parseInt(p.id.toString(), 10);
-      const parentType = p.fields['System.WorkItemType'] === 'Feature' ? 'FT' : 'US';
+      const parentType = p.fields['System.WorkItemType'] === 'Feature' ? 'FEATURE' : 'REQ';
       const titlePattern = new RegExp(`${parentType}\\s*${parentId}\\s*:`, 'i');
       
       tasks.forEach(t => {
@@ -544,6 +511,11 @@ export class AzureDevOpsService {
     const risks = items.filter(i => ['Risk', 'Riesgo'].includes(i.fields['System.WorkItemType']));
 
     const itemsMap = new Map<number, any>(items.map(i => [parseInt(i.id.toString()), i]));
+    const getDisplayName = (val: any) => {
+      if (!val) return null;
+      return typeof val === 'object' ? val.displayName : val;
+    };
+
     const parentEffortMap = new Map<number, { completed: number, planned: number, isw: string }>();
 
     tasks.forEach(task => {
@@ -552,22 +524,19 @@ export class AzureDevOpsService {
         const current = parentEffortMap.get(parentId) || { completed: 0, planned: 0, isw: '' };
         current.completed += task.fields['Microsoft.VSTS.Scheduling.CompletedWork'] || 0;
         current.planned += task.fields['Microsoft.VSTS.Scheduling.OriginalEstimate'] || 0;
-        current.isw = task.fields['System.AssignedTo']?.displayName || current.isw;
+        if (!current.isw && task.fields['System.AssignedTo']) {
+          current.isw = getDisplayName(task.fields['System.AssignedTo']) || '';
+        }
         parentEffortMap.set(parentId, current);
       }
     });
-
-    const getDisplayName = (val: any) => {
-      if (!val) return null;
-      return typeof val === 'object' ? val.displayName : val;
-    };
 
     const bugParentAreaMap = new Map<number, string>();
     const bugParentIterationMap = new Map<number, string>();
 
     const devItemsRaw = parents.map(p => {
       const parentId = parseInt(p.id.toString(), 10);
-      const parentType = p.fields['System.WorkItemType'] === 'Feature' ? 'FT' : 'US';
+      const parentType = p.fields['System.WorkItemType'] === 'Feature' ? 'FEATURE' : 'REQ';
       const titlePattern = new RegExp(`${parentType}\\s*${parentId}\\s*:`, 'i');
 
       const matchingTasks = tasks.filter(t => {
@@ -586,7 +555,7 @@ export class AzureDevOpsService {
         return taskIds.some(tid => relationMap.get(tid)?.has(bId));
       });
 
-      const parentArea = p.fields['System.AreaPath'] || 'OPE20';
+      const parentArea = p.fields['System.AreaPath'] || 'General';
       const parentIteration = p.fields['System.IterationPath'] || absoluteIterationPath || iterationInfo?.path || '';
       linkedBugs.forEach(lb => {
         const lbId = parseInt(lb.id.toString());
@@ -603,8 +572,8 @@ export class AzureDevOpsService {
           originalEstimate: t.fields['Microsoft.VSTS.Scheduling.OriginalEstimate'] || 0,
           completedWork: t.fields['Microsoft.VSTS.Scheduling.CompletedWork'] || 0,
           remainingWork: t.fields['Microsoft.VSTS.Scheduling.RemainingWork'] || 0,
-          type: t.fields['Custom.TaskType'] || t.fields['Microsoft.VSTS.Common.Activity'] || '',
-          discipline: t.fields['Custom.Discipline'] || '',
+          type: t.fields['Custom.TaskType'] || t.fields['Microsoft.VSTS.CMMI.TaskType'] || t.fields['Microsoft.VSTS.Common.Activity'] || '',
+          discipline: t.fields['Custom.Discipline'] || t.fields['Microsoft.VSTS.Common.Discipline'] || '',
           createdDate: t.fields['System.CreatedDate'],
           closedDate: t.fields['Microsoft.VSTS.Common.ClosedDate'],
           changedDate: t.fields['System.ChangedDate'],
@@ -637,8 +606,8 @@ export class AzureDevOpsService {
         originalEstimate: t.fields['Microsoft.VSTS.Scheduling.OriginalEstimate'] || 0,
         completedWork: t.fields['Microsoft.VSTS.Scheduling.CompletedWork'] || 0,
         remainingWork: t.fields['Microsoft.VSTS.Scheduling.RemainingWork'] || 0,
-        type: t.fields['Custom.TaskType'] || t.fields['Microsoft.VSTS.Common.Activity'] || '',
-        discipline: t.fields['Custom.Discipline'] || '',
+        type: t.fields['Custom.TaskType'] || t.fields['Microsoft.VSTS.CMMI.TaskType'] || t.fields['Microsoft.VSTS.Common.Activity'] || '',
+        discipline: t.fields['Custom.Discipline'] || t.fields['Microsoft.VSTS.Common.Discipline'] || '',
         createdDate: t.fields['System.CreatedDate'],
         closedDate: t.fields['Microsoft.VSTS.Common.ClosedDate'],
         changedDate: t.fields['System.ChangedDate'],
@@ -656,7 +625,7 @@ export class AzureDevOpsService {
       const size = fieldSize || p.fields['_discussionSize'] || 0;
 
       return {
-        project: p.fields['System.AreaPath'] || 'OPE20',
+        project: p.fields['System.AreaPath'] || 'General',
         type: p.fields['System.WorkItemType'],
         id: p.id.toString(),
         parentId: p.fields['System.Parent']?.toString() || '',
@@ -691,8 +660,8 @@ export class AzureDevOpsService {
         originalEstimate: t.fields['Microsoft.VSTS.Scheduling.OriginalEstimate'] || 0,
         completedWork: t.fields['Microsoft.VSTS.Scheduling.CompletedWork'] || 0,
         remainingWork: t.fields['Microsoft.VSTS.Scheduling.RemainingWork'] || 0,
-        type: t.fields['Custom.TaskType'] || t.fields['Microsoft.VSTS.Common.Activity'] || '',
-        discipline: t.fields['Custom.Discipline'] || '',
+        type: t.fields['Custom.TaskType'] || t.fields['Microsoft.VSTS.CMMI.TaskType'] || t.fields['Microsoft.VSTS.Common.Activity'] || '',
+        discipline: t.fields['Custom.Discipline'] || t.fields['Microsoft.VSTS.Common.Discipline'] || '',
         createdDate: t.fields['System.CreatedDate'],
         closedDate: t.fields['Microsoft.VSTS.Common.ClosedDate'],
         changedDate: t.fields['System.ChangedDate'],
@@ -704,7 +673,7 @@ export class AzureDevOpsService {
       const isw = getDisplayName(assignedTo) || 'Unassigned';
 
       return {
-        project: b.fields['System.AreaPath'] || 'OPE20',
+        project: b.fields['System.AreaPath'] || 'General',
         type: 'Bug',
         id: b.id.toString(),
         isw,
@@ -888,7 +857,7 @@ export class AzureDevOpsService {
         const isKanban = start > 0 && createdTime > 0 && createdTime < start;
 
         eedBugs.push({
-          project: b.fields['System.AreaPath'] || 'OPE20',
+          project: b.fields['System.AreaPath'] || 'General',
           iteration: iterationName,
           startDate,
           endDate,
@@ -957,7 +926,7 @@ export class AzureDevOpsService {
       if (classification === 'ignore') return null;
 
       const bId = parseInt(b.id.toString());
-      const parentAreaPath = bugParentAreaMap.get(bId) || b.fields['System.AreaPath'] || 'OPE20';
+      const parentAreaPath = bugParentAreaMap.get(bId) || b.fields['System.AreaPath'] || 'General';
       const parentIterationPath = bugParentIterationMap.get(bId) || b.fields['System.IterationPath'] || absoluteIterationPath || iterationInfo?.path || '';
 
       return {
@@ -1022,7 +991,7 @@ export class AzureDevOpsService {
         type: i.fields['System.WorkItemType'],
         title: i.fields['System.Title'] || '',
         assignedTo: isw,
-        project: i.fields['System.AreaPath'] || 'OPE20',
+        project: i.fields['System.AreaPath'] || 'General',
         size: size,
         status: i.fields['System.State'],
         closedDate: i.fields['Microsoft.VSTS.Common.ClosedDate'] || i.fields['System.ChangedDate'],
@@ -1098,23 +1067,21 @@ export class AzureDevOpsService {
     const lastDay = new Date(year, endM, 0).getDate();
     const endDateStr = `${year}-${String(endM).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-    // Normalize area path: remove leading backslash and strip \Area\ segment if present
+    // Normalize area path: remove leading backslash and strip \Area segment
     let path = areaPath.replace(/^\\/, '');
-    const areaSegmentMatch = path.match(/^([^\\]+)\\Area\\(.+)$/i);
-    if (areaSegmentMatch) {
-      path = `${areaSegmentMatch[1]}\\${areaSegmentMatch[2]}`;
-    }
+    path = path.replace(/\\Area\\/i, '\\').replace(/\\Area$/i, '');
     const escapedArea = path.replace(/'/g, "''");
     
     // WIQL query to fetch all stories, requirements, pbis, bugs, features resolved or closed under the area path
     const wiqlQuery = `SELECT [System.Id] FROM WorkItems WHERE [System.AreaPath] UNDER '${escapedArea}' AND [System.WorkItemType] IN ('User Story', 'Requirement', 'Product Backlog Item', 'Requisito', 'Bug', 'Defecto', 'Feature') AND ([Microsoft.VSTS.Common.ClosedDate] >= '${startDateStr}' AND [Microsoft.VSTS.Common.ClosedDate] <= '${endDateStr}' OR [System.ChangedDate] >= '${startDateStr}' AND [System.ChangedDate] <= '${endDateStr}')`;
+    console.log('WIQL KPIs (Sizes):', wiqlQuery);
 
     return this.http.post<any>(
       `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/_apis/wit/wiql?api-version=7.0`,
       { query: wiqlQuery },
       { headers }
     ).pipe(
-      timeout(20000),
+      timeout(60000),
       switchMap(res => {
         const ids: number[] = (res.workItems || []).map((wi: any) => wi.id);
         if (ids.length === 0) return of([]);
@@ -1146,23 +1113,21 @@ export class AzureDevOpsService {
     const lastDay = new Date(year, endM, 0).getDate();
     const endDateStr = `${year}-${String(endM).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-    // Normalize area path: remove leading backslash and strip \Area\ segment if present
+    // Normalize area path: remove leading backslash and strip \Area segment
     let path = areaPath.replace(/^\\/, '');
-    const areaSegmentMatch = path.match(/^([^\\]+)\\Area\\(.+)$/i);
-    if (areaSegmentMatch) {
-      path = `${areaSegmentMatch[1]}\\${areaSegmentMatch[2]}`;
-    }
+    path = path.replace(/\\Area\\/i, '\\').replace(/\\Area$/i, '');
     const escapedArea = path.replace(/'/g, "''");
     
     // WIQL query to fetch all tasks resolved, closed or changed under the area path in that month range
-    const wiqlQuery = `SELECT [System.Id] FROM WorkItems WHERE [System.AreaPath] UNDER '${escapedArea}' AND [System.WorkItemType] = 'Task' AND ([Microsoft.VSTS.Common.ClosedDate] >= '${startDateStr}' AND [Microsoft.VSTS.Common.ClosedDate] <= '${endDateStr}' OR [System.ChangedDate] >= '${startDateStr}' AND [System.ChangedDate] <= '${endDateStr}')`;
+    const wiqlQuery = `SELECT [System.Id] FROM WorkItems WHERE [System.AreaPath] UNDER '${escapedArea}' AND [System.WorkItemType] IN ('Task', 'Tarea') AND ([Microsoft.VSTS.Common.ClosedDate] >= '${startDateStr}' AND [Microsoft.VSTS.Common.ClosedDate] <= '${endDateStr}' OR [System.ChangedDate] >= '${startDateStr}' AND [System.ChangedDate] <= '${endDateStr}')`;
+    console.log('WIQL Tasks (Hours):', wiqlQuery);
 
     return this.http.post<any>(
       `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/_apis/wit/wiql?api-version=7.0`,
       { query: wiqlQuery },
       { headers }
     ).pipe(
-      timeout(20000),
+      timeout(60000),
       switchMap(res => {
         const ids: number[] = (res.workItems || []).map((wi: any) => wi.id);
         if (ids.length === 0) return of([]);
@@ -1171,7 +1136,8 @@ export class AzureDevOpsService {
           'System.Id', 'System.WorkItemType', 'System.Title', 'System.Parent', 'System.AreaPath', 'System.IterationPath',
           'Microsoft.VSTS.Scheduling.CompletedWork', 'Microsoft.VSTS.Scheduling.OriginalEstimate',
           'Microsoft.VSTS.Scheduling.RemainingWork', 'System.AssignedTo', 'Microsoft.VSTS.Common.Activity',
-          'System.CreatedDate', 'Microsoft.VSTS.Common.ClosedDate', 'System.ChangedDate', 'System.State'
+          'System.CreatedDate', 'Microsoft.VSTS.Common.ClosedDate', 'System.ChangedDate', 'System.State',
+          'Custom.TaskType', 'Custom.Discipline', 'Microsoft.VSTS.CMMI.TaskType', 'Microsoft.VSTS.Common.Discipline'
         ].join(',');
 
         return this.getWorkItemDetails(ids, fields);
@@ -1264,7 +1230,6 @@ export class AzureDevOpsService {
             const pIter = (p.iteration || '').toLowerCase().replace(/\\/g, '/');
             const pName = (p.name || '').toLowerCase();
 
-            if (!pArea.includes('mayansoft')) return false;
 
             if (pIter && normalizedPath && pIter.includes(normalizedPath)) return true;
 
@@ -1691,7 +1656,7 @@ export class AzureDevOpsService {
       const classification = getBugClassification(tagsStr);
       if (classification === 'ignore') return null;
       return {
-        project: b.fields['System.AreaPath'] || 'OPE20',
+        project: b.fields['System.AreaPath'] || 'General',
         iteration: b.fields['System.IterationPath'] || '',
         bugId: b.id.toString(),
         title: b.fields['System.Title'] || '',

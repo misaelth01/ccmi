@@ -300,7 +300,7 @@
     <div class="metric-block">
       <div class="font-bold mb-2 uppercase">3.5 Métrica: Eficiencia en la Eliminación de Defectos (EED)</div>
 
-      <p class="text-[8pt] text-slate-550 mb-4 bg-slate-50 p-2.5 border-l-2 border-amber-500 leading-relaxed">
+      <p class="text-[8pt] text-slate-500 mb-4 bg-slate-50 p-2.5 border-l-2 border-amber-500 leading-relaxed">
         Esta métrica mide el porcentaje de bugs atendidos contra el total de bugs detectados durante el ciclo de vida de desarrollo. El resultado se expresa en porcentaje y permite evaluar cuántos bugs se detectan y se atienden satisfactoriamente antes de salir a producción. <br/><strong>Fórmula:</strong> KPI EED = (∑ Bugs Closed / # Total de bugs detectados) x 100. Se consideran atendidos en tiempo aquellos que fueron cerrados dentro de la vigencia del sprint.
         <br><strong>Meta establecida:</strong> 81.00% | <strong>Umbrales:</strong> Verde &ge; 81% | Amarillo &ge; 71% | Rojo &lt; 71%
       </p>
@@ -373,7 +373,7 @@
                 <span class="text-slate-700">{{ story.title }}</span>
               </div>
               <div class="flex items-center gap-2 text-[6.5pt]">
-                <span class="text-slate-550 font-bold px-1 bg-slate-100 rounded">{{ story.status }}</span>
+                <span class="text-slate-500 font-bold px-1 bg-slate-100 rounded">{{ story.status }}</span>
               </div>
             </div>
           </div>
@@ -387,7 +387,7 @@
                 <span class="text-slate-700">{{ task.title }}</span>
               </div>
               <div class="flex items-center gap-2 text-[6.5pt]">
-                <span class="text-slate-550 font-bold px-1 bg-slate-100 rounded">{{ task.status }}</span>
+                <span class="text-slate-500 font-bold px-1 bg-slate-100 rounded">{{ task.status }}</span>
               </div>
             </div>
           </div>
@@ -400,7 +400,7 @@
                 <span class="text-slate-700">{{ bug.title }}</span>
               </div>
               <div class="flex items-center gap-2 text-[6.5pt]">
-                <span class="text-slate-550 font-bold px-1 bg-slate-100 rounded">{{ bug.status }}</span>
+                <span class="text-slate-500 font-bold px-1 bg-slate-100 rounded">{{ bug.status }}</span>
                 <span class="px-1.5 py-0.5 rounded font-bold"
                   [ngClass]="bug.deliveryStatus === 'dentro' ? 'bg-emerald-100 text-emerald-800' : (node.deliveryStatus === 'fuera' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800')">
                   {{ bug.deliveryStatus === 'dentro' ? 'Dentro' : 'Fuera / Tarde' }}
@@ -441,11 +441,11 @@
         </div>
         <div class="p-2 border bg-slate-50 text-center">
           <div class="text-[6pt] uppercase opacity-55">Bugs UAT</div>
-          <div class="text-[12pt] font-bold text-indigo-750">{{ (filteredEscapedBugs || metrics.escapedBugs).bugsUat }}</div>
+          <div class="text-[12pt] font-bold text-indigo-700">{{ (filteredEscapedBugs || metrics.escapedBugs).bugsUat }}</div>
         </div>
         <div class="p-2 border bg-slate-50 text-center">
           <div class="text-[6pt] uppercase opacity-55">Bugs Producción</div>
-          <div class="text-[12pt] font-bold text-rose-750">{{ (filteredEscapedBugs || metrics.escapedBugs).bugsProd }}</div>
+          <div class="text-[12pt] font-bold text-rose-700">{{ (filteredEscapedBugs || metrics.escapedBugs).bugsProd }}</div>
         </div>
         <div class="p-2 border bg-slate-50 text-center">
           <div class="text-[6pt] uppercase opacity-55">Total Bugs</div>
@@ -590,7 +590,7 @@
               <div class="font-bold text-[8px]">{{ pt.planName }}</div>
               <div class="text-[6px] text-gray-400">{{ pt.suiteName }}</div>
             </td>
-            <td class="p-1 border text-blue-650 font-bold">#{{ pt.testCaseId }}</td>
+            <td class="p-1 border text-blue-600 font-bold">#{{ pt.testCaseId }}</td>
             <td class="p-1 border truncate max-w-[200px]">{{ pt.testCaseTitle }}</td>
             <td class="p-1 border">{{ pt.tester }}</td>
             <td class="p-1 border text-center">
@@ -661,7 +661,7 @@
         </div>
         <div class="p-2 border bg-slate-50 text-center">
           <div class="text-[5.5pt] uppercase opacity-55">None/Exec</div>
-          <div class="text-[10pt] font-bold text-slate-550">{{ satisfactoryTestsStats?.notExecuted ?? metrics?.satisfactoryTests?.notExecuted }}</div>
+          <div class="text-[10pt] font-bold text-slate-500">{{ satisfactoryTestsStats?.notExecuted ?? metrics?.satisfactoryTests?.notExecuted }}</div>
         </div>
         <div class="p-2 border text-center transition-all duration-300" [ngClass]="{
           'bg-green-50 border-green-200 text-green-800': (satisfactoryTestsStats?.status ?? metrics?.satisfactoryTests?.status) === 'green',
@@ -697,7 +697,7 @@
         <tbody>
           <tr *ngFor="let pt of (satisfactoryTestsPoints ?? metrics?.testExecution?.testPoints)">
             <td class="p-1 border font-mono">#{{ pt.testPointId }}</td>
-            <td class="p-1 border text-blue-650 font-bold">#{{ pt.testCaseId }}</td>
+            <td class="p-1 border text-blue-600 font-bold">#{{ pt.testCaseId }}</td>
             <td class="p-1 border truncate max-w-[200px]" [title]="pt.testCaseTitle">{{ pt.testCaseTitle }}</td>
             <td class="p-1 border">
               <span class="font-bold px-1 py-0.5 rounded text-[7px] uppercase"

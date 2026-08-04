@@ -122,7 +122,7 @@ import { forkJoin } from 'rxjs';
         <!-- Summary Widgets -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div class="bg-indigo-50/50 dark:bg-indigo-950/20 p-4 rounded-2xl border border-indigo-100/50 dark:border-indigo-900/30 flex items-center gap-3 transition-all hover:shadow-md">
-            <div class="p-3 rounded-xl bg-indigo-500/10 dark:bg-indigo-400/10 text-indigo-600 dark:text-indigo-350 shrink-0">
+            <div class="p-3 rounded-xl bg-indigo-500/10 dark:bg-indigo-400/10 text-indigo-600 dark:text-indigo-400 shrink-0">
               <lucide-icon [name]="Layers" size="20"></lucide-icon>
             </div>
             <div class="min-w-0">
@@ -132,7 +132,7 @@ import { forkJoin } from 'rxjs';
           </div>
 
           <div class="bg-emerald-50/40 dark:bg-emerald-950/20 p-4 rounded-2xl border border-emerald-100/50 dark:border-emerald-900/30 flex items-center gap-3 transition-all hover:shadow-md">
-            <div class="p-3 rounded-xl bg-emerald-500/10 dark:bg-emerald-400/10 text-emerald-600 dark:text-emerald-350 shrink-0">
+            <div class="p-3 rounded-xl bg-emerald-500/10 dark:bg-emerald-400/10 text-emerald-600 dark:text-emerald-400 shrink-0">
               <lucide-icon [name]="Sparkles" size="20"></lucide-icon>
             </div>
             <div class="min-w-0">
@@ -209,7 +209,7 @@ import { forkJoin } from 'rxjs';
                 
                 <!-- Connection Line (Stem) to the track -->
                 <div *ngIf="item.verticalTier > 0" 
-                     class="absolute w-0.5 border-l border-dashed border-slate-350 dark:border-slate-650 z-0"
+                     class="absolute w-0.5 border-l border-dashed border-slate-400 dark:border-slate-600 z-0"
                      [ngStyle]="getTimelineStemStyle(item.verticalTier, 32)">
                 </div>
                 
@@ -246,7 +246,7 @@ import { forkJoin } from 'rxjs';
                     
                     <!-- Child Bugs List -->
                     <div *ngIf="item.relatedBugs?.length" class="mt-2 pt-2 border-t border-slate-800/40">
-                      <span class="text-rose-450 font-bold block mb-1">🐞 Defectos Asociados (Hijos):</span>
+                      <span class="text-rose-500 font-bold block mb-1">🐞 Defectos Asociados (Hijos):</span>
                       <div class="space-y-1 max-h-24 overflow-y-auto pr-1">
                         <div *ngFor="let bug of item.relatedBugs" class="flex items-center justify-between text-[8px] text-slate-400">
                           <span class="truncate max-w-[150px]">#{{ bug.id }}: {{ bug.title }}</span>
@@ -256,7 +256,7 @@ import { forkJoin } from 'rxjs';
                     </div>
 
                     <div class="pt-1 mt-1 border-t border-slate-800/50 flex items-center justify-between">
-                      <span class="text-slate-550 font-bold">Entrega:</span>
+                      <span class="text-slate-500 font-bold">Entrega:</span>
                       <span class="font-bold uppercase" 
                         [ngClass]="{
                           'text-emerald-400': item.deliveryStatus === 'on-time',
@@ -374,7 +374,7 @@ import { forkJoin } from 'rxjs';
 
         <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-blue-500">
           Esta métrica mide el esfuerzo (tiempo) promedio de atención por unidad de tamaño (size) para los <strong>requerimientos</strong>.
-          <br><span class="font-bold text-slate-700 dark:text-slate-350">Umbrales:</span> Verde &le; 1.7 | Amarillo &le; 2.0 | Rojo &gt; 2.0
+          <br><span class="font-bold text-slate-700 dark:text-slate-400">Umbrales:</span> Verde &le; 1.7 | Amarillo &le; 2.0 | Rojo &gt; 2.0
         </p>
 
         <!-- Summary KPIs -->
@@ -490,7 +490,7 @@ import { forkJoin } from 'rxjs';
                   <td class="px-3 py-2">
                     <span class="px-2 py-0.5 rounded text-[10px] font-bold"
                       [ngClass]="{'bg-purple-100 text-purple-700': item.type==='Feature', 'bg-blue-100 text-blue-700': item.type==='User Story'}">
-                      {{ item.type === 'Feature' ? 'FT' : 'US' }}
+                      {{ item.type === 'Feature' ? 'FEATURE' : 'REQ' }}
                     </span>
                   </td>
                   <td class="px-3 py-2 text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-bold" (click)="openWorkItem(item.id)">#{{ item.id }}</td>
@@ -581,7 +581,7 @@ import { forkJoin } from 'rxjs';
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
                           <tr *ngFor="let task of item.tasks" class="hover:bg-white dark:hover:bg-slate-800 transition-colors">
                             <td class="px-3 py-1.5 text-blue-500 hover:text-blue-700 hover:underline cursor-pointer font-bold" (click)="openWorkItem(task.id)">#{{ task.id }}</td>
-                            <td class="px-3 py-1.5 text-slate-700 dark:text-slate-350 max-w-[300px] truncate" [title]="task.title">{{ task.title }}</td>
+                            <td class="px-3 py-1.5 text-slate-700 dark:text-slate-400 max-w-[300px] truncate" [title]="task.title">{{ task.title }}</td>
                             <td class="px-3 py-1.5 text-slate-500 max-w-[120px] truncate" [title]="task.assignedTo">{{ task.assignedTo }}</td>
                             <td class="px-3 py-1.5 text-center font-medium">{{ formatEffort(task.originalEstimate) }}</td>
                             <td class="px-3 py-1.5 text-center font-medium text-emerald-600">{{ formatEffort(task.completedWork) }}</td>
@@ -610,7 +610,7 @@ import { forkJoin } from 'rxjs';
                       </table>
                     </div>
                     <div *ngIf="!item.tasks?.length" class="text-xs text-slate-400 italic py-2 text-center">
-                      Sin tareas con patrón "{{ item.type === 'Feature' ? 'FT' : 'US' }} {{ item.id }}:"
+                      Sin tareas con patrón "{{ item.type === 'Feature' ? 'FEATURE' : 'REQ' }} {{ item.id }}:"
                     </div>
 
                     <!-- Related Bugs Table -->
@@ -634,7 +634,7 @@ import { forkJoin } from 'rxjs';
                           <tbody class="divide-y divide-rose-100 dark:divide-rose-900/20">
                             <tr *ngFor="let bug of item.relatedBugs" class="hover:bg-white/80 dark:hover:bg-slate-800/80 transition-colors">
                               <td class="px-3 py-1.5 text-rose-600 hover:text-rose-800 hover:underline cursor-pointer font-bold" (click)="openWorkItem(bug.id)">#{{ bug.id }}</td>
-                              <td class="px-3 py-1.5 text-slate-700 dark:text-slate-350 max-w-[300px] truncate" [title]="bug.title">{{ bug.title }}</td>
+                              <td class="px-3 py-1.5 text-slate-700 dark:text-slate-400 max-w-[300px] truncate" [title]="bug.title">{{ bug.title }}</td>
                               <td class="px-3 py-1.5 text-slate-500 max-w-[120px] truncate" [title]="bug.assignedTo">{{ bug.assignedTo }}</td>
                               <td class="px-3 py-1.5">
                                 <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase"
@@ -690,13 +690,13 @@ import { forkJoin } from 'rxjs';
           </div>
         </div>
 
-        <p class="text-xs text-slate-550 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-violet-500">
+        <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-violet-500">
           Según fuentes oficiales Cálculo de la Desviación de Estimación de Desarrollo.
           <br><strong>Fórmula:</strong> Tasa de Desviación de Esfuerzo = [(Esfuerzo Real - Esfuerzo Planeado) / Esfuerzo Planeado] x 100
           <br><strong>Esfuerzo Real:</strong> Suma del "Completed Work" de las tareas.
           <br><strong>Esfuerzo Planeado:</strong> Suma del "Original Estimate" de las tareas.
           <br><strong>Procedimiento:</strong> Se calcula la variación porcentual entre el esfuerzo real registrado frente a la estimación original planificada para los entregables cerrados.
-          <br><span class="font-bold text-slate-700 dark:text-slate-350">Umbrales:</span> Verde &le; 15% | Amarillo &le; 30% | Rojo &gt; 30%
+          <br><span class="font-bold text-slate-700 dark:text-slate-400">Umbrales:</span> Verde &le; 15% | Amarillo &le; 30% | Rojo &gt; 30%
         </p>
 
         <!-- Summary KPIs (like image) -->
@@ -863,11 +863,11 @@ import { forkJoin } from 'rxjs';
                     (click)="toggleExpand(item.id, 2)">
                     <div class="flex items-center justify-between">
                       <div class="flex flex-col min-w-0">
-                        <span class="text-[10px] font-bold text-violet-500 hover:text-violet-750 hover:underline cursor-pointer truncate flex items-center gap-1" (click)="$event.stopPropagation(); openWorkItem(item.id)">
+                        <span class="text-[10px] font-bold text-violet-500 hover:text-violet-700 hover:underline cursor-pointer truncate flex items-center gap-1" (click)="$event.stopPropagation(); openWorkItem(item.id)">
                           #{{ item.id }}
                           <lucide-icon [name]="Layers" size="8" class="text-slate-300"></lucide-icon>
                         </span>
-                        <span class="text-[9px] text-slate-400 truncate max-w-[100px]">{{ item.type === 'Feature' ? 'FT' : 'US' }}</span>
+                        <span class="text-[9px] text-slate-400 truncate max-w-[100px]">{{ item.type === 'Feature' ? 'FEATURE' : 'REQ' }}</span>
                       </div>
                       <div class="text-right shrink-0">
                         <div class="text-[10px] font-black" 
@@ -915,7 +915,7 @@ import { forkJoin } from 'rxjs';
         <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-rose-500">
           Esta métrica calcula la tasa de retrabajo asociada a los <strong>requerimientos en estado Resuelto y Cerrado</strong>. 
           Para ello, considera tanto el esfuerzo invertido en tareas planeadas y correctivas, como el esfuerzo destinado a la atención de los bugs vinculados mediante las relaciones Affected by y Related.
-          <br><span class="font-bold text-slate-700 dark:text-slate-350">Meta establecida:</span> 20.00% | <span class="font-bold text-slate-700 dark:text-slate-350">Umbrales:</span> Verde &le; 22% | Amarillo &le; 30% | Rojo &gt; 30%
+          <br><span class="font-bold text-slate-700 dark:text-slate-400">Meta establecida:</span> 20.00% | <span class="font-bold text-slate-700 dark:text-slate-400">Umbrales:</span> Verde &le; 22% | Amarillo &le; 30% | Rojo &gt; 30%
         </p>
 
         <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
@@ -982,7 +982,7 @@ import { forkJoin } from 'rxjs';
               <ng-container *ngFor="let item of metrics.developmentRate.items">
                 <tr class="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 cursor-pointer transition-colors"
                   (click)="toggleExpand(item.id, 3)">
-                  <td class="p-3 font-bold text-indigo-500 hover:text-indigo-750 hover:underline cursor-pointer" (click)="$event.stopPropagation(); openWorkItem(item.id)">#{{ item.id }}</td>
+                  <td class="p-3 font-bold text-indigo-500 hover:text-indigo-700 hover:underline cursor-pointer" (click)="$event.stopPropagation(); openWorkItem(item.id)">#{{ item.id }}</td>
                   <td class="p-3 text-slate-400">{{ item.type }}</td>
                   <td class="p-3 font-medium">{{ item.isw }}</td>
                   <td class="p-3 text-center font-bold text-slate-400">{{ getEffectiveSize(item) }}</td>
@@ -1014,7 +1014,7 @@ import { forkJoin } from 'rxjs';
                             <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-500 uppercase font-bold">{{ task.type || 'Planeada' }}</span>
                           </div>
                           <div class="flex items-center gap-4 text-[11px]">
-                            <span class="text-slate-400">Tipo: <span class="text-slate-600 dark:text-slate-350 font-bold">{{ task.type || 'Planeada' }}</span></span>
+                            <span class="text-slate-400">Tipo: <span class="text-slate-600 dark:text-slate-400 font-bold">{{ task.type || 'Planeada' }}</span></span>
                              <span class="font-bold text-indigo-500">{{ formatEffort(task.completedWork) }}h</span>
                           </div>
                         </div>
@@ -1039,7 +1039,7 @@ import { forkJoin } from 'rxjs';
                             <div class="flex items-center gap-6 text-[10px]">
                               <div class="flex flex-col items-end">
                                 <span class="text-[8px] uppercase text-slate-400 font-bold">Est. Total</span>
-                                <span class="font-bold text-slate-600 dark:text-slate-350">{{ formatEffort(bug.originalEstimate) }}h</span>
+                                <span class="font-bold text-slate-600 dark:text-slate-400">{{ formatEffort(bug.originalEstimate) }}h</span>
                               </div>
                               <div class="flex flex-col items-end">
                                 <span class="text-[8px] uppercase text-slate-400 font-bold">Real Total</span>
@@ -1112,7 +1112,7 @@ import { forkJoin } from 'rxjs';
 
         <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-emerald-500">
           Esta métrica realiza la medición de la cantidad de defectos promedio por unidad de tamaño (size). Considera el número de bugs detectados ("Affected by" y "Related") provenientes de la construcción de <strong>requerimientos</strong> o la atención de otros bugs.
-          <br><span class="font-bold text-slate-700 dark:text-slate-350">Umbrales:</span> Verde &le; 0.18 | Amarillo &le; 0.23 | Rojo &gt; 0.23
+          <br><span class="font-bold text-slate-700 dark:text-slate-400">Umbrales:</span> Verde &le; 0.18 | Amarillo &le; 0.23 | Rojo &gt; 0.23
         </p>
 
         <!-- Summary KPIs -->
@@ -1229,9 +1229,9 @@ import { forkJoin } from 'rxjs';
           </div>
         </div>
 
-        <p class="text-xs text-slate-550 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-amber-500">
+        <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-amber-500">
           Esta métrica mide el porcentaje de bugs atendidos contra el total de bugs detectados durante el ciclo de vida de desarrollo. El resultado se expresa en porcentaje y permite evaluar cuántos bugs se detectan y se atienden satisfactoriamente antes de salir a producción. <br/><strong>Fórmula:</strong> KPI EED = (∑ Bugs Closed / # Total de bugs detectados) x 100. Se consideran atendidos en tiempo aquellos que fueron cerrados dentro de la vigencia del sprint.
-          <br><span class="font-bold text-slate-700 dark:text-slate-350">Meta establecida:</span> 81.00% | <span class="font-bold text-slate-700 dark:text-slate-350">Umbrales:</span> Verde &ge; 81% | Amarillo &ge; 71% | Rojo &lt; 71%
+          <br><span class="font-bold text-slate-700 dark:text-slate-400">Meta establecida:</span> 81.00% | <span class="font-bold text-slate-700 dark:text-slate-400">Umbrales:</span> Verde &ge; 81% | Amarillo &ge; 71% | Rojo &lt; 71%
         </p>
 
         <!-- KPI summary grid -->
@@ -1287,11 +1287,11 @@ import { forkJoin } from 'rxjs';
         <div class="mb-10 bg-slate-50 dark:bg-slate-800/10 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-visible">
           <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-slate-200 dark:border-slate-800 pb-4">
             <div>
-              <h4 class="text-sm font-black text-slate-700 dark:text-slate-350 uppercase tracking-wider flex items-center gap-2">
+              <h4 class="text-sm font-black text-slate-700 dark:text-slate-400 uppercase tracking-wider flex items-center gap-2">
                 <lucide-icon [name]="TrendingUp" size="16" class="text-amber-500"></lucide-icon>
                 LÍNEA DE TIEMPO DEL SPRINT (EED)
               </h4>
-              <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Distribución de requerimientos (US/FT) en el tiempo con sus defectos asociados ramificados</p>
+              <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Distribución de requerimientos (REQ/FEATURE) en el tiempo con sus defectos asociados ramificados</p>
             </div>
             
             <div class="flex flex-col lg:flex-row lg:items-center gap-4">
@@ -1373,18 +1373,18 @@ import { forkJoin } from 'rxjs';
                   
                   <!-- Connection Line (Stem) to the track -->
                   <div *ngIf="node.verticalTier > 0" 
-                       class="absolute w-0.5 border-l border-dashed border-slate-350 dark:border-slate-650 z-0" 
+                       class="absolute w-0.5 border-l border-dashed border-slate-400 dark:border-slate-600 z-0" 
                        [ngStyle]="getEEDStemStyle(node.verticalTier, 44)">
                   </div>
 
                   <!-- Horizontal bug branch line -->
                   <!-- Extending to the right if leftPct <= 75 -->
                   <div *ngIf="node.bugs?.length && node.leftPct <= 75" 
-                       class="absolute left-3 top-3 w-4 border-t border-dashed border-slate-350 dark:border-slate-650 z-0">
+                       class="absolute left-3 top-3 w-4 border-t border-dashed border-slate-400 dark:border-slate-600 z-0">
                   </div>
                   <!-- Extending to the left if leftPct > 75 -->
                   <div *ngIf="node.bugs?.length && node.leftPct > 75" 
-                       class="absolute right-3 top-3 w-4 border-t border-dashed border-slate-350 dark:border-slate-650 z-0">
+                       class="absolute right-3 top-3 w-4 border-t border-dashed border-slate-400 dark:border-slate-600 z-0">
                   </div>
 
                   <!-- Leaf Bugs container (Right side) -->
@@ -1428,12 +1428,12 @@ import { forkJoin } from 'rxjs';
                       }"
                       (click)="openWorkItem(node.id)">
                       <span class="text-[8px] font-black leading-none">
-                        {{ node.type === 'Feature' ? 'FT' : (node.type === 'User Story' ? 'US' : node.type === 'SprintStandalone' ? 'BG' : 'KB') }}
+                        {{ node.type === 'Feature' ? 'FEATURE' : (node.type === 'User Story' ? 'REQ' : node.type === 'SprintStandalone' ? 'BG' : 'KB') }}
                       </span>
                     </div>
 
                     <!-- Label showing ID (opens in browser) -->
-                    <span class="text-[8px] font-black mt-0.5 select-none cursor-pointer text-slate-650 dark:text-slate-400 hover:text-indigo-500 hover:underline bg-white dark:bg-slate-800 px-1 py-0.5 rounded shadow-sm border border-slate-100 dark:border-slate-700 z-20"
+                    <span class="text-[8px] font-black mt-0.5 select-none cursor-pointer text-slate-600 dark:text-slate-400 hover:text-indigo-500 hover:underline bg-white dark:bg-slate-800 px-1 py-0.5 rounded shadow-sm border border-slate-100 dark:border-slate-700 z-20"
                       (click)="openWorkItem(node.id)">
                       {{ node.id === 'kanban_standalone' ? 'Bugs Kanban' : node.id === 'sprint_standalone' ? 'Bugs Sprint' : '#' + node.id }}
                     </span>
@@ -1448,7 +1448,7 @@ import { forkJoin } from 'rxjs';
                             'bg-emerald-600': node.type === 'SprintStandalone',
                             'bg-blue-500': node.type === 'Standalone'
                           }">
-                          {{ node.type === 'Feature' ? 'FEATURE' : (node.type === 'User Story' ? 'USER STORY' : node.type === 'SprintStandalone' ? 'BUGS SIN US/FT' : 'KANBAN (OTRO SPRINT)') }}
+                          {{ node.type === 'Feature' ? 'FEATURE' : (node.type === 'User Story' ? 'REQ' : node.type === 'SprintStandalone' ? 'BUGS SIN REQ/FEATURE' : 'KANBAN (OTRO SPRINT)') }}
                         </span>
                         <span class="text-[10px] font-black text-slate-400">{{ ['kanban_standalone', 'sprint_standalone'].includes(node.id) ? '' : '#' + node.id }}</span>
                       </div>
@@ -1493,7 +1493,7 @@ import { forkJoin } from 'rxjs';
                         </div>
 
                         <div *ngIf="!['kanban_standalone', 'sprint_standalone'].includes(node.id)" class="pt-1 mt-1 border-t border-slate-800/50 flex items-center justify-between">
-                          <span class="text-slate-550 font-bold">Entrega:</span>
+                          <span class="text-slate-500 font-bold">Entrega:</span>
                           <span class="font-bold uppercase" 
                             [ngClass]="node.deliveryStatus === 'dentro' ? 'text-emerald-400' : 'text-rose-400'">
                             {{ node.deliveryStatus === 'dentro' ? 'Dentro del Sprint' : 'Fuera / Tarde' }}
@@ -1519,7 +1519,7 @@ import { forkJoin } from 'rxjs';
                 <div class="flex items-center justify-between mb-2">
                   <div class="flex items-center gap-2">
                     <span class="w-1.5 h-3 rounded-full bg-indigo-500 animate-pulse"></span>
-                    <h5 class="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-350">Defectos del Sprint (US y FT)</h5>
+                    <h5 class="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-400">Defectos del Sprint (REQ y FEATURE)</h5>
                   </div>
                   <span class="text-[9px] font-bold text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/40 px-2 py-0.5 rounded-md border border-slate-100 dark:border-slate-800/50">Cantidad: {{ getSprintBugsList().length }}</span>
                 </div>
@@ -1589,7 +1589,7 @@ import { forkJoin } from 'rxjs';
                 <div class="flex items-center justify-between mb-2">
                   <div class="flex items-center gap-2">
                     <span class="w-1.5 h-3 rounded-full bg-blue-500"></span>
-                    <h5 class="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-350">Defectos de Otros Sprints (Atendidos por Kanban)</h5>
+                    <h5 class="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-400">Defectos de Otros Sprints (Atendidos por Kanban)</h5>
                   </div>
                   <span class="text-[9px] font-bold text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/40 px-2 py-0.5 rounded-md border border-slate-100 dark:border-slate-800/50">Cantidad: {{ getKanbanBugsList().length }}</span>
                 </div>
@@ -1642,7 +1642,7 @@ import { forkJoin } from 'rxjs';
                           }">{{ item.status }}</span>
                         </td>
                         <td class="px-4 py-2.5">
-                          <span class="font-medium text-slate-450 dark:text-slate-500">
+                          <span class="font-medium text-slate-500 dark:text-slate-500">
                             —
                           </span>
                         </td>
@@ -1676,7 +1676,7 @@ import { forkJoin } from 'rxjs';
                 <span>{{ copiedKeys['eed'] ? '¡Copiado!' : 'Copiar' }}</span>
               </button>
             </h4>
-            <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-350" [innerHTML]="formatAnalysisText(metricAnalyses['eed'])">
+            <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-400" [innerHTML]="formatAnalysisText(metricAnalyses['eed'])">
             </div>
           </div>
           <div *ngIf="!metricAnalyses['eed']" class="text-sm opacity-50 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
@@ -1703,7 +1703,7 @@ import { forkJoin } from 'rxjs';
         <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-indigo-500">
           Esta métrica realiza la medición del porcentaje de bugs escapados a producción contra el número de bugs detectados antes de la entrega del paquete de liberación. <br/>
           <strong>Fórmula:</strong> KPI Defectos Escapados = (∑ bugs en producción / ∑ bugs detectados antes de la liberación) x 100.
-          <br><span class="font-bold text-slate-700 dark:text-slate-350">Umbrales:</span> Verde &le; 33% | Amarillo &le; 40% | Rojo &gt; 40%
+          <br><span class="font-bold text-slate-700 dark:text-slate-400">Umbrales:</span> Verde &le; 33% | Amarillo &le; 40% | Rojo &gt; 40%
         </p>
 
         <!-- Sprint Comparison Selector for Escaped Bugs -->
@@ -1729,7 +1729,7 @@ import { forkJoin } from 'rxjs';
             <div class="flex gap-2">
               <button (click)="loadCompareEscaped()"
                       [disabled]="selectedCompareEscapedIterations.length === 0 || isLoadingCompareEscaped"
-                      class="text-[11px] font-bold px-3 py-1.5 bg-indigo-500 hover:bg-indigo-650 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-all cursor-pointer flex items-center gap-1.5">
+                      class="text-[11px] font-bold px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg transition-all cursor-pointer flex items-center gap-1.5">
                 <lucide-icon *ngIf="isLoadingCompareEscaped" [name]="RefreshCw" size="11" class="animate-spin"></lucide-icon>
                 {{ isLoadingCompareEscaped ? 'Cargando...' : 'Generar comparativa' }}
               </button>
@@ -1753,7 +1753,7 @@ import { forkJoin } from 'rxjs';
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Bugs Producción</div>
-            <div class="text-2xl font-bold text-rose-650">{{ filteredEscapedBugs.bugsProd }}</div>
+            <div class="text-2xl font-bold text-rose-600">{{ filteredEscapedBugs.bugsProd }}</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Total Bugs</div>
@@ -1810,7 +1810,7 @@ import { forkJoin } from 'rxjs';
                 </thead>
                 <tbody class="text-xs divide-y divide-slate-100 dark:divide-slate-800/50">
                   <ng-container *ngFor="let r of filteredEscapedBugs.rows">
-                    <tr class="hover:bg-slate-100/50 dark:hover:bg-slate-850/50 transition-colors">
+                    <tr class="hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-colors">
                       <td class="p-3 text-center">
                         <button *ngIf="r.bugs?.length" (click)="toggleExpandBugRow(r.fullIteration)"
                           class="w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 transition-all">
@@ -1917,10 +1917,10 @@ import { forkJoin } from 'rxjs';
       <div class="p-6">
         <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-2">3.7 Métrica: % Ejecución de Pruebas<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
 
-        <p class="text-xs text-slate-550 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-emerald-500">
+        <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-emerald-500">
           Esta métrica calcula el porcentaje de ejecución de pruebas en el proceso de desarrollo de software.<br/>
           <strong>Fórmula:</strong> KPI Run Rate = (∑ Test Points ejecutados / Total de Test Points) x 100. Solo se consideran los test points dentro de la vigencia del sprint.
-          <br><span class="font-bold text-slate-700 dark:text-slate-350">Meta establecida:</span> 100.00% | <span class="font-bold text-slate-700 dark:text-slate-350">Umbrales:</span> Verde &ge; 90% | Amarillo &ge; 80% | Rojo &lt; 80%
+          <br><span class="font-bold text-slate-700 dark:text-slate-400">Meta establecida:</span> 100.00% | <span class="font-bold text-slate-700 dark:text-slate-400">Umbrales:</span> Verde &ge; 90% | Amarillo &ge; 80% | Rojo &lt; 80%
         </p>
 
         <!-- KPI summary grid -->
@@ -1991,7 +1991,7 @@ import { forkJoin } from 'rxjs';
                 <tbody class="text-xs divide-y divide-slate-100 dark:divide-slate-800/50">
                   <ng-container *ngFor="let group of getGroupedTestPoints()">
                     <!-- Parent row -->
-                    <tr class="hover:bg-slate-100/50 dark:hover:bg-slate-850/50 transition-colors" 
+                    <tr class="hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-colors" 
                         [class.bg-emerald-50]="expandedTestPoints.has(group.key)"
                         (click)="toggleExpandTestPoints(group.key)">
                       <td class="p-3 text-center">
@@ -2024,7 +2024,7 @@ import { forkJoin } from 'rxjs';
                             'bg-emerald-100 text-emerald-700': pt.outcome.toLowerCase() === 'passed',
                             'bg-red-100 text-red-700': pt.outcome.toLowerCase() === 'failed',
                             'bg-amber-100 text-amber-700': pt.outcome.toLowerCase() === 'blocked',
-                            'bg-slate-100 text-slate-550': pt.outcome.toLowerCase() === 'none' || pt.outcome.toLowerCase() === 'active',
+                            'bg-slate-100 text-slate-500': pt.outcome.toLowerCase() === 'none' || pt.outcome.toLowerCase() === 'active',
                             'bg-purple-100 text-purple-700': pt.outcome.toLowerCase() === 'notapplicable' || pt.outcome.toLowerCase() === 'not applicable'
                           }">
                             {{ pt.outcome }}
@@ -2054,7 +2054,7 @@ import { forkJoin } from 'rxjs';
               <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Failed: <strong>{{ metrics?.testExecution?.failed || 0 }}</strong></span></div>
               <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Blocked: <strong>{{ metrics?.testExecution?.blocked || 0 }}</strong></span></div>
               <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">N/Exec: <strong>{{ metrics?.testExecution?.notExecuted || 0 }}</strong></span></div>
-              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-350 dark:bg-slate-600 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">N/A: <strong>{{ metrics?.testExecution?.notApplicable || 0 }}</strong></span></div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-400 dark:bg-slate-600 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">N/A: <strong>{{ metrics?.testExecution?.notApplicable || 0 }}</strong></span></div>
             </div>
           </div>
         </div>
@@ -2075,7 +2075,7 @@ import { forkJoin } from 'rxjs';
                   <span>{{ copiedKeys['testExecution'] ? '¡Copiado!' : 'Copiar' }}</span>
                 </button>
               </h4>
-              <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-350" [innerHTML]="formatAnalysisText(getTestExecutionAnalysis())">
+              <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-400" [innerHTML]="formatAnalysisText(getTestExecutionAnalysis())">
               </div>
             </div>
           </div>
@@ -2098,10 +2098,10 @@ import { forkJoin } from 'rxjs';
           </div>
         </div>
 
-        <p class="text-xs text-slate-550 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-teal-500">
+        <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-teal-500">
           Esta métrica mide la efectividad de las pruebas ejecutadas, calculando el porcentaje de test points que finalizaron con resultado satisfactorio (Passed) respecto al total de pruebas que fueron ejecutadas.<br/>
           <strong>Fórmula:</strong> KPI Pass Rate = (∑ Test Points Passed / Total de Test Points Ejecutados) x 100. Solo se consideran los test points dentro de la vigencia del sprint.
-          <br><span class="font-bold text-slate-700 dark:text-slate-350">Meta establecida:</span> 100.00% | <span class="font-bold text-slate-700 dark:text-slate-350">Umbrales:</span> Verde &ge; 90% | Amarillo &ge; 80% | Rojo &lt; 80%
+          <br><span class="font-bold text-slate-700 dark:text-slate-400">Meta establecida:</span> 100.00% | <span class="font-bold text-slate-700 dark:text-slate-400">Umbrales:</span> Verde &ge; 90% | Amarillo &ge; 80% | Rojo &lt; 80%
         </p>
 
         <!-- KPI summary grid -->
@@ -2181,7 +2181,7 @@ import { forkJoin } from 'rxjs';
                   </tr>
                 </thead>
                 <tbody class="text-xs divide-y divide-slate-100 dark:divide-slate-800/50">
-                  <tr *ngFor="let pt of getFilteredM38TestPoints()" class="hover:bg-slate-50/50 dark:hover:bg-slate-850/50 transition-colors">
+                  <tr *ngFor="let pt of getFilteredM38TestPoints()" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
                     <td class="p-2.5 font-mono text-[10px] text-slate-500">#{{ pt.testPointId }}</td>
                     <td class="p-2.5 text-indigo-500 font-bold hover:underline cursor-pointer" (click)="openWorkItem(pt.testCaseId)">#{{ pt.testCaseId }}</td>
                     <td class="p-2.5">
@@ -2189,7 +2189,7 @@ import { forkJoin } from 'rxjs';
                         'bg-emerald-100 text-emerald-700': pt.outcome.toLowerCase() === 'passed',
                         'bg-red-100 text-red-700': pt.outcome.toLowerCase() === 'failed',
                         'bg-amber-100 text-amber-700': pt.outcome.toLowerCase() === 'blocked',
-                        'bg-slate-100 text-slate-550': pt.outcome.toLowerCase() === 'none' || pt.outcome.toLowerCase() === 'active',
+                        'bg-slate-100 text-slate-500': pt.outcome.toLowerCase() === 'none' || pt.outcome.toLowerCase() === 'active',
                         'bg-purple-100 text-purple-700': pt.outcome.toLowerCase() === 'notapplicable' || pt.outcome.toLowerCase() === 'not applicable'
                       }">
                         {{ pt.outcome }}
@@ -2247,7 +2247,7 @@ import { forkJoin } from 'rxjs';
                   <span>{{ copiedKeys['satisfactoryTests'] ? '¡Copiado!' : 'Copiar' }}</span>
                 </button>
               </h4>
-              <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-350" [innerHTML]="formatAnalysisText(getSatisfactoryTestsAnalysis())">
+              <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-400" [innerHTML]="formatAnalysisText(getSatisfactoryTestsAnalysis())">
               </div>
             </div>
           </div>
@@ -2503,7 +2503,7 @@ import { forkJoin } from 'rxjs';
           <div class="p-3 rounded-2xl text-xs leading-relaxed shadow-sm whitespace-pre-wrap"
                [ngClass]="{
                  'bg-indigo-600 text-white rounded-tr-none': msg.role === 'user',
-                 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-155 rounded-tl-none border border-slate-100 dark:border-slate-800/40': msg.role === 'assistant'
+                 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none border border-slate-100 dark:border-slate-800/40': msg.role === 'assistant'
                }">{{ msg.content }}</div>
         </div>
         
@@ -2529,7 +2529,7 @@ import { forkJoin } from 'rxjs';
     <!-- Chat Input Area -->
     <form (submit)="sendChatMessage(); $event.preventDefault()" 
           class="border-t border-slate-100 dark:border-slate-800/60 p-3 bg-white dark:bg-slate-900 flex gap-2 shrink-0 items-center">
-      <input [(ngModel)]="chatQuestion" 
+      <input #chatInput [(ngModel)]="chatQuestion" 
              name="chatQuestion"
              type="text" 
              placeholder="Pregunta sobre las métricas, ISWs, bugs..." 
@@ -4220,7 +4220,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     // 1. Development Rate Chart — real items from selected sprint
     const items = this.metrics.developmentRate.items;
-    const itemLabels = items.map(i => `${i.type === 'Feature' ? 'FT' : 'US'} #${i.id}`);
+    const itemLabels = items.map(i => `${i.type === 'Feature' ? 'FEATURE' : 'REQ'} #${i.id}`);
     const itemRates = items.map(i => parseFloat(this.getEffectiveRate(i).toFixed(2)));
     const itemColors = itemRates.map(r =>
       r <= 1.7 ? 'rgba(34, 197, 94, 0.75)' :   // green
@@ -5004,6 +5004,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.chatOpen = !this.chatOpen;
     if (this.chatOpen) {
       this.scrollToBottom();
+      setTimeout(() => {
+        const inputElement = document.querySelector('input[name="chatQuestion"]') as HTMLInputElement;
+        if (inputElement) inputElement.focus();
+      }, 200);
     }
   }
 

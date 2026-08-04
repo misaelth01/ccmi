@@ -186,9 +186,14 @@ export class LayoutComponent {
   isMenuCollapsed = false;
 
   constructor(private updateService: UpdateService) {
-    // Default to Light Mode as requested
-    this.isDarkMode = false;
-    document.documentElement.classList.remove('dark');
+    // Restore persistent dark mode state
+    const savedTheme = localStorage.getItem('cmmi5_theme');
+    this.isDarkMode = savedTheme === 'dark';
+    if (this.isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
 
     // Restore persistent menu state
     const savedState = localStorage.getItem('cmmi5_menu_collapsed');
@@ -203,8 +208,10 @@ export class LayoutComponent {
     this.isDarkMode = !this.isDarkMode;
     if (this.isDarkMode) {
       document.documentElement.classList.add('dark');
+      localStorage.setItem('cmmi5_theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      localStorage.setItem('cmmi5_theme', 'light');
     }
   }
 

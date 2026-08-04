@@ -50,7 +50,7 @@ import { UpdateService } from '../../services/update.service';
             <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400 border border-emerald-500/20">
               Versión Instalada: v{{ currentVersion }}
             </span>
-            <span *ngIf="latestRelease" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800/80 dark:text-slate-350 border border-slate-200/50 dark:border-slate-700/50">
+            <span *ngIf="latestRelease" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800/80 dark:text-slate-400 border border-slate-200/50 dark:border-slate-700/50">
               Última revisión: {{ latestRelease.tag_name }}
             </span>
           </div>
@@ -105,7 +105,7 @@ import { UpdateService } from '../../services/update.service';
                 </div>
                 
                 <!-- Release Notes Content -->
-                <div class="max-h-48 overflow-y-auto pr-2 scrollbar-thin text-xs text-slate-650 dark:text-slate-300 leading-relaxed font-sans space-y-2">
+                <div class="max-h-48 overflow-y-auto pr-2 scrollbar-thin text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-sans space-y-2">
                   <div class="font-bold text-sm text-slate-800 dark:text-white">
                     {{ latestRelease?.name || latestRelease?.tag_name }}
                   </div>
@@ -119,7 +119,7 @@ import { UpdateService } from '../../services/update.service';
               </div>
 
               <!-- Status Message -->
-              <div class="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-100/80 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-800/40 text-xs text-slate-650 dark:text-slate-300">
+              <div class="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-100/80 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-800/40 text-xs text-slate-600 dark:text-slate-300">
                 <lucide-icon [name]="Info" size="16" class="text-indigo-500 shrink-0"></lucide-icon>
                 <div class="flex-1 flex justify-between items-center">
                   <span>{{ updateStatusMessage }}</span>
@@ -185,7 +185,7 @@ import { UpdateService } from '../../services/update.service';
       <!-- Advanced Section Accordion -->
       <div class="border border-slate-200/50 dark:border-slate-800/80 rounded-2xl overflow-hidden glass-panel">
         <button (click)="showAdvanced = !showAdvanced" 
-                class="w-full flex items-center justify-between py-4 px-6 bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all text-slate-700 dark:text-slate-350 cursor-pointer font-bold text-sm select-none">
+                class="w-full flex items-center justify-between py-4 px-6 bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-all text-slate-700 dark:text-slate-400 cursor-pointer font-bold text-sm select-none">
           <span class="flex items-center gap-2">
             <lucide-icon [name]="Search" size="16" class="text-slate-400"></lucide-icon>
             Opciones avanzadas y reinstalación manual
