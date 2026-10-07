@@ -93,10 +93,13 @@ export class ConfigComponent {
 
   private configService = inject(ConfigService);
 
-  config: AppConfig = this.configService.getConfig() || {
-    azure: { pat: '', organization: '', project: '' },
-    ai: { provider: 'openai', apiKey: '', model: '' }
-  };
+  config: AppConfig = (() => {
+    const saved = this.configService.getConfig();
+    return {
+      azure: { pat: '', organization: '', project: '', ...(saved?.azure || {}) },
+      ai: { provider: 'openai', apiKey: '', model: '', ...(saved?.ai || {}) }
+    };
+  })();
 
   save() {
     this.configService.saveConfig(this.config);

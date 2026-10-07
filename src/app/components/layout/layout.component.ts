@@ -89,6 +89,7 @@ import { NotificationComponent } from '../notification/notification.component';
         <span *ngIf="!isMenuCollapsed" class="font-medium animate-in fade-in duration-300 whitespace-nowrap">Configurar Sprint</span>
       </a>
       <a 
+        *ngIf="false"
         routerLink="/update" 
         routerLinkActive="!bg-indigo-500/10 !text-indigo-500" 
         class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all text-slate-600 dark:text-slate-300 relative"
@@ -149,7 +150,7 @@ import { NotificationComponent } from '../notification/notification.component';
       <lucide-icon [name]="ClipboardList" size="20"></lucide-icon>
       <span>Sprint</span>
     </a>
-    <a routerLink="/update" routerLinkActive="!text-indigo-500 font-bold" class="flex flex-col items-center justify-center gap-1 text-[10px] text-slate-500">
+    <a *ngIf="false" routerLink="/update" routerLinkActive="!text-indigo-500 font-bold" class="flex flex-col items-center justify-center gap-1 text-[10px] text-slate-500">
       <div class="relative flex items-center justify-center">
         <lucide-icon [name]="DownloadCloud" size="20"></lucide-icon>
         <span *ngIf="hasUpdate" class="absolute -top-1.5 -right-2.5 flex h-3.5 px-1 items-center justify-center rounded-full bg-indigo-600 text-[7px] font-black text-white shadow-sm animate-pulse uppercase tracking-tight z-10 leading-none">
