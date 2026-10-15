@@ -1,10 +1,11 @@
-import { Component, OnInit, inject, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, OnInit, inject, ViewChild, ElementRef, AfterViewInit, ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AzureDevOpsService } from '../../services/azure-devops.service';
 import { AIService } from '../../services/ai.service';
 import { PdfService } from '../../services/pdf.service';
 import { CMMIMetrics } from '../../models/metrics.model';
+import { MetricsApiService, VersionInfo } from '../../services/metrics-api.service';
 import { LucideAngularModule, TrendingUp, Bug, AlertTriangle, Sparkles, Download, RefreshCw, Layers, Users, ChevronDown, CloudDownload, Search, DownloadCloud, ArrowUpRight, MessageSquare, Send, X, Bot, User, Copy, Check } from 'lucide-angular';
 import { Chart, registerables } from 'chart.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
@@ -15,7 +16,7 @@ import { FormsModule } from '@angular/forms';
 import { ConfigService } from '../../services/config.service';
 import { PdfTemplateComponent } from '../../components/pdf-template/pdf-template.component';
 import { NotificationService } from '../../services/notification.service';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of, firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-dashboard',
@@ -46,6 +47,17 @@ import { forkJoin } from 'rxjs';
           <option value="">Todos los ISW</option>
           <option *ngFor="let isw of iswList" [value]="isw">{{ isw }}</option>
         </select>
+
+        <!-- Status Indicator (Mongo DB Atlas integration) -->
+        <div *ngIf="selectedIteration" 
+             class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border h-[38px] box-border shrink-0 select-none"
+             [ngClass]="analysisVersions.length > 0 
+               ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/20 dark:border-emerald-800/40 dark:text-emerald-400' 
+               : 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-slate-800/40 dark:border-slate-700/50 dark:text-slate-400'">
+          <span class="w-1.5 h-1.5 rounded-full shrink-0" 
+                [ngClass]="analysisVersions.length > 0 ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+          {{ analysisVersions.length > 0 ? 'Guardado en BD' : 'No Guardado en BD' }}
+        </div>
 
         <!-- Action Buttons Tray -->
         <div class="flex items-center gap-2 shrink-0 bg-slate-200/50 dark:bg-slate-800/60 p-1 rounded-xl border border-slate-300/40 dark:border-slate-700/50 h-[38px] box-border">
@@ -82,9 +94,21 @@ import { forkJoin } from 'rxjs';
       </div>
 
       <!-- Sprint Dates Display directly under buttons in the same container -->
-      <div *ngIf="metrics?.startDate && selectedIteration" class="animate-in fade-in duration-500 mr-1">
+      <div *ngIf="metrics?.startDate && selectedIteration" class="animate-in fade-in duration-500 mr-1 flex flex-wrap items-center justify-end gap-2">
         <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">
           Vigencia del Sprint: <strong class="text-indigo-600 dark:text-indigo-400">{{ metrics!.startDate | date:'dd MMM':'UTC' }} - {{ metrics!.endDate | date:'dd MMM yyyy':'UTC' }}</strong>
+        </span>
+        <span *ngIf="accumulatedSprintRange" class="text-[9px] font-bold px-2 py-0.5 rounded bg-indigo-50/80 text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300 border border-indigo-150 dark:border-indigo-900/50 flex items-center gap-1 shadow-sm">
+          <lucide-icon [name]="Layers" size="10" class="text-indigo-500"></lucide-icon>
+          Sprints del Año {{ currentYear }}: <strong class="font-black text-indigo-800 dark:text-indigo-200">{{ accumulatedSprintRange }}</strong>
+        </span>
+        <span *ngIf="selectedVersionNumber" class="text-[9px] font-black px-2 py-0.5 rounded bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 uppercase shadow-sm border border-purple-100 dark:border-purple-900/50 flex items-center gap-0.5">
+          <lucide-icon [name]="Check" size="10" class="text-purple-600 dark:text-purple-400"></lucide-icon>
+          Guardado BD (v{{ selectedVersionNumber }})
+        </span>
+        <span *ngIf="!selectedVersionNumber" class="text-[9px] font-black px-2 py-0.5 rounded bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 uppercase shadow-sm border border-amber-100 dark:border-amber-900/50 flex items-center gap-0.5">
+          <lucide-icon [name]="AlertTriangle" size="10" class="text-amber-500"></lucide-icon>
+          No Guardado en BD
         </span>
       </div>
     </div>
@@ -112,9 +136,17 @@ import { forkJoin } from 'rxjs';
               <p class="text-xs text-slate-400 dark:text-slate-400">Distribución temporal de entregas construidas en el Sprint vs. Fase Extendida</p>
             </div>
           </div>
-          <div class="flex items-center gap-2 self-start md:self-auto">
+          <div class="flex flex-wrap items-center gap-2 self-start md:self-auto">
             <span class="text-[10px] font-black px-2.5 py-1 rounded bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 uppercase shadow-sm border border-indigo-100 dark:border-indigo-900/50">
               Vigencia Oficial: {{ metrics!.startDate | date:'dd MMM':'UTC' }} - {{ metrics!.endDate | date:'dd MMM yyyy':'UTC' }}
+            </span>
+            <span *ngIf="selectedVersionNumber" class="text-[10px] font-black px-2.5 py-1 rounded bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-300 uppercase shadow-sm border border-purple-100 dark:border-purple-900/50 flex items-center gap-1">
+              <lucide-icon [name]="Check" size="11" class="text-purple-600 dark:text-purple-400"></lucide-icon>
+              Guardado BD (v{{ selectedVersionNumber }})
+            </span>
+            <span *ngIf="!selectedVersionNumber && aiAnalysis" class="text-[10px] font-black px-2.5 py-1 rounded bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 uppercase shadow-sm border border-amber-100 dark:border-amber-900/50 flex items-center gap-1">
+              <lucide-icon [name]="AlertTriangle" size="11" class="text-amber-500"></lucide-icon>
+              No Guardado en BD (Local Cache)
             </span>
           </div>
         </div>
@@ -165,7 +197,7 @@ import { forkJoin } from 'rxjs';
         </div>
 
         <!-- The Visual Timeline Track -->
-        <div class="relative pt-28 pb-28 px-4 bg-slate-50 dark:bg-slate-800/20 rounded-3xl border border-slate-100 dark:border-slate-800 mb-6 overflow-visible">
+        <div *ngIf="timelineSummary.items && timelineSummary.items.length > 0" class="relative pt-16 pb-16 px-4 bg-slate-50 dark:bg-slate-800/20 rounded-3xl border border-slate-100 dark:border-slate-800 mb-6 overflow-visible">
           
           <!-- Timeline grid and markers -->
           <div class="relative h-6 w-full flex items-center">
@@ -234,7 +266,7 @@ import { forkJoin } from 'rxjs';
                         'bg-purple-600': item.type === 'Feature',
                         'bg-blue-600': item.type === 'User Story'
                       }">
-                      {{ item.type === 'Feature' ? 'FEATURE' : 'USER STORY' }}
+                      {{ getPrefix(item.type) }}
                     </span>
                     <span class="text-[10px] font-black text-slate-400">#{{ item.id }}</span>
                   </div>
@@ -334,24 +366,64 @@ import { forkJoin } from 'rxjs';
 
           <!-- AI Timeline Analysis Box (same format as other metrics) -->
           <div class="space-y-4">
-            <div *ngIf="metricAnalyses['cumplimiento']" class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)]">
+            <!-- Skeleton Screen -->
+            <div *ngIf="analyzingMetrics['cumplimiento']" class="bg-indigo-50/40 dark:bg-slate-900/80 p-5 rounded-2xl border-2 border-indigo-500/40 dark:border-indigo-500/50 shadow-lg animate-pulse space-y-4 relative overflow-hidden my-4">
+              <div class="flex items-center justify-between border-b border-indigo-200/60 dark:border-indigo-800/80 pb-3">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-6 h-6 rounded-full bg-indigo-600/20 dark:bg-indigo-500/30 flex items-center justify-center">
+                    <lucide-icon [name]="Sparkles" size="14" class="text-indigo-600 dark:text-indigo-400 animate-spin"></lucide-icon>
+                  </div>
+                  <span class="text-xs font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                    Analizando métrica con IA...
+                    <span class="w-2 h-2 rounded-full bg-indigo-500 animate-ping"></span>
+                  </span>
+                </div>
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                  CMMI Level 5 IA
+                </span>
+              </div>
+              <div class="space-y-3 pt-1">
+                <div class="h-4 bg-slate-300/80 dark:bg-slate-700/80 rounded-md w-3/4 animate-pulse"></div>
+                <div class="h-3.5 bg-slate-200/90 dark:bg-slate-800/90 rounded-md w-full animate-pulse"></div>
+                <div class="h-3.5 bg-slate-200/90 dark:bg-slate-800/90 rounded-md w-11/12 animate-pulse"></div>
+                <div class="h-3.5 bg-slate-200/90 dark:bg-slate-800/90 rounded-md w-4/5 animate-pulse"></div>
+                <div class="h-3.5 bg-slate-200/90 dark:bg-slate-800/90 rounded-md w-2/3 animate-pulse"></div>
+              </div>
+            </div>
+
+            <div *ngIf="!analyzingMetrics['cumplimiento'] && metricAnalyses['cumplimiento']" class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)]">
               <h4 class="text-xs font-bold uppercase text-[rgb(255,77,17)] mb-2 flex items-center justify-between w-full">
                 <span class="flex items-center">
                   <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
                   Análisis de resultados e Acciones
                 </span>
-                <button (click)="copyAnalysis('cumplimiento', metricAnalyses['cumplimiento'])"
-                        class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
-                        [title]="copiedKeys['cumplimiento'] ? 'Copiado' : 'Copiar análisis'">
-                  <lucide-icon [name]="copiedKeys['cumplimiento'] ? Check : Copy" size="12"></lucide-icon>
-                  <span>{{ copiedKeys['cumplimiento'] ? '¡Copiado!' : 'Copiar' }}</span>
-                </button>
+                <div class="flex items-center gap-2">
+                  <button (click)="runSingleMetricAI('cumplimiento')"
+                          [disabled]="isAnalyzing || analyzingMetrics['cumplimiento']"
+                          class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-indigo-400 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                          title="Volver a analizar esta métrica con IA">
+                    <lucide-icon [name]="Sparkles" size="12"></lucide-icon>
+                    <span>Re-analizar</span>
+                  </button>
+                  <button (click)="copyAnalysis('cumplimiento', metricAnalyses['cumplimiento'])"
+                          class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                          [title]="copiedKeys['cumplimiento'] ? 'Copiado' : 'Copiar análisis'">
+                    <lucide-icon [name]="copiedKeys['cumplimiento'] ? Check : Copy" size="12"></lucide-icon>
+                    <span>{{ copiedKeys['cumplimiento'] ? '¡Copiado!' : 'Copiar' }}</span>
+                  </button>
+                </div>
               </h4>
               <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-300" [innerHTML]="formatAnalysisText(metricAnalyses['cumplimiento'])">
               </div>
             </div>
-            <div *ngIf="!metricAnalyses['cumplimiento']" class="text-sm opacity-50 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
-              Genera el análisis IA para visualizar las recomendaciones.
+
+            <div *ngIf="!analyzingMetrics['cumplimiento'] && !metricAnalyses['cumplimiento']" class="text-sm opacity-90 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg flex items-center justify-between">
+              <span class="opacity-60">Genera el análisis IA para visualizar las recomendaciones.</span>
+              <button (click)="runSingleMetricAI('cumplimiento')" [disabled]="isAnalyzing || !metrics"
+                      class="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow transition-all cursor-pointer">
+                <lucide-icon [name]="Sparkles" size="13"></lucide-icon>
+                <span>Analizar métrica</span>
+              </button>
             </div>
           </div>
         </div>
@@ -362,7 +434,22 @@ import { forkJoin } from 'rxjs';
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-blue-500 overflow-hidden">
       <div class="p-6">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.1 Métrica: Cálculo de la Tasa de Desarrollo en Procesos de Software<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+          
+            <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
+              <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.1 Métrica: Cálculo de la Tasa de Desarrollo en Procesos de Software<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+              <button 
+                (click)="openCommentModal('tasaDev', '3.1 Métrica: Cálculo de la Tasa de Desarrollo en Procesos de Software')"
+                [ngClass]="{
+                  'border-emerald-300 bg-emerald-50/40 text-emerald-600 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-400': metricComments['tasaDev'] && metricComments['tasaDev'].trim(),
+                  'border-slate-200 bg-slate-50/50 text-slate-500 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-500': !metricComments['tasaDev'] || !metricComments['tasaDev'].trim()
+                }"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
+                <lucide-icon [name]="MessageSquare" size="13" [class.text-emerald-500]="metricComments['tasaDev'] && metricComments['tasaDev'].trim()"></lucide-icon>
+                <span>{{ metricComments['tasaDev'] && metricComments['tasaDev'].trim() ? 'Nota Guardada' : 'Agregar Nota/Contexto' }}</span>
+                <span *ngIf="metricComments['tasaDev'] && metricComments['tasaDev'].trim()" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              </button>
+            </div>
+    
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
             'bg-green-100 text-green-700': metrics.developmentRate.status === 'green',
             'bg-yellow-100 text-yellow-700': metrics.developmentRate.status === 'yellow',
@@ -434,25 +521,61 @@ import { forkJoin } from 'rxjs';
           </div>
         </div>
 
-        <div *ngIf="metricAnalyses['tasa de desarrollo']" class="mt-6 p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-[rgb(255,77,17)] mb-8 animate-in fade-in duration-300">
+        <!-- Skeleton Screen -->
+        <div *ngIf="analyzingMetrics['tasa de desarrollo']" class="mt-6 mb-8 p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-indigo-200 dark:border-indigo-800/60 shadow-sm animate-pulse space-y-3 relative overflow-hidden">
+          <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/80 pb-2 mb-3">
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-4 rounded-full bg-indigo-500/30 flex items-center justify-center">
+                <lucide-icon [name]="Sparkles" size="13" class="text-indigo-600 dark:text-indigo-400 animate-spin"></lucide-icon>
+              </div>
+              <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Analizando métrica con IA...</span>
+            </div>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+              Procesando CMMI 5
+            </span>
+          </div>
+          <div class="space-y-2.5">
+            <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-5/6"></div>
+            <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-full"></div>
+            <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-4/6"></div>
+            <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-11/12"></div>
+            <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-3/4"></div>
+          </div>
+        </div>
+
+        <div *ngIf="!analyzingMetrics['tasa de desarrollo'] && metricAnalyses['tasa de desarrollo']" class="mt-6 p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-[rgb(255,77,17)] mb-8 animate-in fade-in duration-300">
           <h4 class="text-xs font-bold uppercase text-[rgb(255,77,17)] mb-2 flex items-center justify-between w-full">
             <span class="flex items-center">
               <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
               Análisis de resultados e Acciones
             </span>
-            <button (click)="copyAnalysis('tasa de desarrollo', metricAnalyses['tasa de desarrollo'])" 
-                    class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
-                    [title]="copiedKeys['tasa de desarrollo'] ? 'Copiado' : 'Copiar análisis'">
-              <lucide-icon [name]="copiedKeys['tasa de desarrollo'] ? Check : Copy" size="12"></lucide-icon>
-              <span>{{ copiedKeys['tasa de desarrollo'] ? '¡Copiado!' : 'Copiar' }}</span>
-            </button>
+            <div class="flex items-center gap-2">
+              <button (click)="runSingleMetricAI('tasa de desarrollo')" 
+                      [disabled]="isAnalyzing || analyzingMetrics['tasa de desarrollo']"
+                      class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-indigo-400 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                      title="Volver a analizar esta métrica con IA">
+                <lucide-icon [name]="Sparkles" size="12"></lucide-icon>
+                <span>Re-analizar</span>
+              </button>
+              <button (click)="copyAnalysis('tasa de desarrollo', metricAnalyses['tasa de desarrollo'])" 
+                      class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                      [title]="copiedKeys['tasa de desarrollo'] ? 'Copiado' : 'Copiar análisis'">
+                <lucide-icon [name]="copiedKeys['tasa de desarrollo'] ? Check : Copy" size="12"></lucide-icon>
+                <span>{{ copiedKeys['tasa de desarrollo'] ? '¡Copiado!' : 'Copiar' }}</span>
+              </button>
+            </div>
           </h4>
           <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-300" [innerHTML]="formatAnalysisText(metricAnalyses['tasa de desarrollo'])">
           </div>
         </div>
         
-        <div *ngIf="!metricAnalyses['tasa de desarrollo']" class="mt-6 mb-8 text-sm opacity-50 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
-          Genera el análisis IA para visualizar las recomendaciones.
+        <div *ngIf="!analyzingMetrics['tasa de desarrollo'] && !metricAnalyses['tasa de desarrollo']" class="mt-6 mb-8 text-sm opacity-90 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg flex items-center justify-between">
+          <span class="opacity-60">Genera el análisis IA para visualizar las recomendaciones.</span>
+          <button (click)="runSingleMetricAI('tasa de desarrollo')" [disabled]="isAnalyzing || !metrics"
+                  class="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow transition-all cursor-pointer">
+            <lucide-icon [name]="Sparkles" size="13"></lucide-icon>
+            <span>Analizar métrica</span>
+          </button>
         </div>
 
         <!-- Detail Table -->
@@ -474,7 +597,7 @@ import { forkJoin } from 'rxjs';
               </tr>
             </thead>
             <tbody>
-              <ng-container *ngFor="let item of metrics.developmentRate.items">
+              <ng-container *ngFor="let item of getSortedReworkItems()">
                 <!-- Main row -->
                 <tr class="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
                     [class.bg-purple-50]="item.type==='Feature' && !isDark()"
@@ -490,7 +613,7 @@ import { forkJoin } from 'rxjs';
                   <td class="px-3 py-2">
                     <span class="px-2 py-0.5 rounded text-[10px] font-bold"
                       [ngClass]="{'bg-purple-100 text-purple-700': item.type==='Feature', 'bg-blue-100 text-blue-700': item.type==='User Story'}">
-                      {{ item.type === 'Feature' ? 'FEATURE' : 'REQ' }}
+                      {{ getPrefix(item.type) }}
                     </span>
                   </td>
                   <td class="px-3 py-2 text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-bold" (click)="openWorkItem(item.id)">#{{ item.id }}</td>
@@ -610,7 +733,7 @@ import { forkJoin } from 'rxjs';
                       </table>
                     </div>
                     <div *ngIf="!item.tasks?.length" class="text-xs text-slate-400 italic py-2 text-center">
-                      Sin tareas con patrón "{{ item.type === 'Feature' ? 'FEATURE' : 'REQ' }} {{ item.id }}:"
+                      Sin tareas con patrón "{{ getPrefix(item.type) }} {{ item.id }}"
                     </div>
 
                     <!-- Related Bugs Table -->
@@ -674,7 +797,22 @@ import { forkJoin } from 'rxjs';
       <div class="p-6">
         <div class="flex items-center justify-between mb-2">
           <div class="flex flex-col">
-            <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.2 Métrica: Desviación de estimación de desarrollo<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+            
+            <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
+              <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.2 Métrica: Desviación de estimación de desarrollo<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+              <button 
+                (click)="openCommentModal('desviacion', '3.2 Métrica: Desviación de estimación de desarrollo')"
+                [ngClass]="{
+                  'border-emerald-300 bg-emerald-50/40 text-emerald-600 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-400': metricComments['desviacion'] && metricComments['desviacion'].trim(),
+                  'border-slate-200 bg-slate-50/50 text-slate-500 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-500': !metricComments['desviacion'] || !metricComments['desviacion'].trim()
+                }"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
+                <lucide-icon [name]="MessageSquare" size="13" [class.text-emerald-500]="metricComments['desviacion'] && metricComments['desviacion'].trim()"></lucide-icon>
+                <span>{{ metricComments['desviacion'] && metricComments['desviacion'].trim() ? 'Nota Guardada' : 'Agregar Nota/Contexto' }}</span>
+                <span *ngIf="metricComments['desviacion'] && metricComments['desviacion'].trim()" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              </button>
+            </div>
+    
             <!-- Validation Warning -->
             <div *ngIf="getTotalRemainingWork() > 0" class="flex items-center gap-1.5 text-[10px] text-red-500 font-bold bg-red-50 px-2 py-0.5 rounded mt-1 border border-red-100">
               <lucide-icon [name]="AlertTriangle" size="10"></lucide-icon>
@@ -757,25 +895,61 @@ import { forkJoin } from 'rxjs';
           </div>
         </div>
 
-        <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)] mb-8 animate-in fade-in duration-300">
+        <!-- Skeleton Screen -->
+        <div *ngIf="analyzingMetrics['tasa de desviación']" class="bg-slate-50 dark:bg-slate-900/60 p-5 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 shadow-sm animate-pulse space-y-3 relative overflow-hidden mb-8">
+          <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/80 pb-2 mb-3">
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-4 rounded-full bg-indigo-500/30 flex items-center justify-center">
+                <lucide-icon [name]="Sparkles" size="13" class="text-indigo-600 dark:text-indigo-400 animate-spin"></lucide-icon>
+              </div>
+              <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Analizando métrica con IA...</span>
+            </div>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+              Procesando CMMI 5
+            </span>
+          </div>
+          <div class="space-y-2.5">
+            <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-5/6"></div>
+            <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-full"></div>
+            <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-4/6"></div>
+            <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-11/12"></div>
+            <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-3/4"></div>
+          </div>
+        </div>
+
+        <div *ngIf="!analyzingMetrics['tasa de desviación'] && metricAnalyses['tasa de desviación']" class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)] mb-8 animate-in fade-in duration-300">
           <h4 class="text-xs font-bold uppercase text-[rgb(255,77,17)] mb-2 flex items-center justify-between w-full">
             <span class="flex items-center">
               <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
               Análisis de resultados e Acciones
             </span>
-            <button *ngIf="metricAnalyses['tasa de desviación']" 
-                    (click)="copyAnalysis('tasa de desviación', metricAnalyses['tasa de desviación'])" 
-                    class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
-                    [title]="copiedKeys['tasa de desviación'] ? 'Copiado' : 'Copiar análisis'">
-              <lucide-icon [name]="copiedKeys['tasa de desviación'] ? Check : Copy" size="12"></lucide-icon>
-              <span>{{ copiedKeys['tasa de desviación'] ? '¡Copiado!' : 'Copiar' }}</span>
-            </button>
+            <div class="flex items-center gap-2">
+              <button (click)="runSingleMetricAI('tasa de desviación')" 
+                      [disabled]="isAnalyzing || analyzingMetrics['tasa de desviación']"
+                      class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-indigo-400 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                      title="Volver a analizar esta métrica con IA">
+                <lucide-icon [name]="Sparkles" size="12"></lucide-icon>
+                <span>Re-analizar</span>
+              </button>
+              <button (click)="copyAnalysis('tasa de desviación', metricAnalyses['tasa de desviación'])" 
+                      class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                      [title]="copiedKeys['tasa de desviación'] ? 'Copiado' : 'Copiar análisis'">
+                <lucide-icon [name]="copiedKeys['tasa de desviación'] ? Check : Copy" size="12"></lucide-icon>
+                <span>{{ copiedKeys['tasa de desviación'] ? '¡Copiado!' : 'Copiar' }}</span>
+              </button>
+            </div>
           </h4>
-          <div *ngIf="metricAnalyses['tasa de desviación']" class="text-sm leading-relaxed text-slate-700 dark:text-slate-300" [innerHTML]="formatAnalysisText(metricAnalyses['tasa de desviación'], true)">
+          <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-300" [innerHTML]="formatAnalysisText(metricAnalyses['tasa de desviación'], true)">
           </div>
-          <div *ngIf="!metricAnalyses['tasa de desviación']" class="text-sm opacity-50">
-            Genera el análisis IA para visualizar las recomendaciones.
-          </div>
+        </div>
+
+        <div *ngIf="!analyzingMetrics['tasa de desviación'] && !metricAnalyses['tasa de desviación']" class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-800 mb-8 flex items-center justify-between">
+          <span class="text-sm opacity-60">Genera el análisis IA para visualizar las recomendaciones.</span>
+          <button (click)="runSingleMetricAI('tasa de desviación')" [disabled]="isAnalyzing || !metrics"
+                  class="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow transition-all cursor-pointer">
+            <lucide-icon [name]="Sparkles" size="13"></lucide-icon>
+            <span>Analizar métrica</span>
+          </button>
         </div>
       </div>
     </section>
@@ -867,7 +1041,7 @@ import { forkJoin } from 'rxjs';
                           #{{ item.id }}
                           <lucide-icon [name]="Layers" size="8" class="text-slate-300"></lucide-icon>
                         </span>
-                        <span class="text-[9px] text-slate-400 truncate max-w-[100px]">{{ item.type === 'Feature' ? 'FEATURE' : 'REQ' }}</span>
+                        <span class="text-[9px] text-slate-400 truncate max-w-[100px]">{{ getPrefix(item.type) }}</span>
                       </div>
                       <div class="text-right shrink-0">
                         <div class="text-[10px] font-black" 
@@ -902,7 +1076,22 @@ import { forkJoin } from 'rxjs';
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-rose-500 overflow-hidden">
       <div class="p-6">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.3 Métrica: Tasa de Retrabajo en Procesos de Software<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+          
+            <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
+              <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.3 Métrica: Tasa de Retrabajo en Procesos de Software<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+              <button 
+                (click)="openCommentModal('retrabajo', '3.3 Métrica: Tasa de Retrabajo en Procesos de Software')"
+                [ngClass]="{
+                  'border-emerald-300 bg-emerald-50/40 text-emerald-600 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-400': metricComments['retrabajo'] && metricComments['retrabajo'].trim(),
+                  'border-slate-200 bg-slate-50/50 text-slate-500 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-500': !metricComments['retrabajo'] || !metricComments['retrabajo'].trim()
+                }"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
+                <lucide-icon [name]="MessageSquare" size="13" [class.text-emerald-500]="metricComments['retrabajo'] && metricComments['retrabajo'].trim()"></lucide-icon>
+                <span>{{ metricComments['retrabajo'] && metricComments['retrabajo'].trim() ? 'Nota Guardada' : 'Agregar Nota/Contexto' }}</span>
+                <span *ngIf="metricComments['retrabajo'] && metricComments['retrabajo'].trim()" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              </button>
+            </div>
+    
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
             'bg-green-100 text-green-700': metrics.rework.status === 'green',
             'bg-yellow-100 text-yellow-700': metrics.rework.status === 'yellow',
@@ -979,7 +1168,7 @@ import { forkJoin } from 'rxjs';
               </tr>
             </thead>
             <tbody class="text-xs">
-              <ng-container *ngFor="let item of metrics.developmentRate.items">
+              <ng-container *ngFor="let item of getSortedReworkItems()">
                 <tr class="border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 cursor-pointer transition-colors"
                   (click)="toggleExpand(item.id, 3)">
                   <td class="p-3 font-bold text-indigo-500 hover:text-indigo-700 hover:underline cursor-pointer" (click)="$event.stopPropagation(); openWorkItem(item.id)">#{{ item.id }}</td>
@@ -1072,25 +1261,61 @@ import { forkJoin } from 'rxjs';
           </table>
         </div>
 
-        <!-- Rework AI Analysis Box -->
-        <div *ngIf="metricAnalyses['retrabajo']" class="mt-6 p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-[rgb(255,77,17)] animate-in fade-in duration-300">
+        <!-- Skeleton Screen -->
+        <div *ngIf="analyzingMetrics['retrabajo']" class="mt-6 p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-indigo-200 dark:border-indigo-800/60 shadow-sm animate-pulse space-y-3 relative overflow-hidden">
+          <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/80 pb-2 mb-3">
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-4 rounded-full bg-indigo-500/30 flex items-center justify-center">
+                <lucide-icon [name]="Sparkles" size="13" class="text-indigo-600 dark:text-indigo-400 animate-spin"></lucide-icon>
+              </div>
+              <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Analizando métrica con IA...</span>
+            </div>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+              Procesando CMMI 5
+            </span>
+          </div>
+          <div class="space-y-2.5">
+            <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-5/6"></div>
+            <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-full"></div>
+            <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-4/6"></div>
+            <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-11/12"></div>
+            <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-3/4"></div>
+          </div>
+        </div>
+
+        <div *ngIf="!analyzingMetrics['retrabajo'] && metricAnalyses['retrabajo']" class="mt-6 p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-[rgb(255,77,17)] animate-in fade-in duration-300">
           <h4 class="text-xs font-bold uppercase text-[rgb(255,77,17)] mb-2 flex items-center justify-between w-full">
             <span class="flex items-center">
               <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
               Análisis de resultados e Acciones
             </span>
-            <button (click)="copyAnalysis('retrabajo', metricAnalyses['retrabajo'])" 
-                    class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
-                    [title]="copiedKeys['retrabajo'] ? 'Copiado' : 'Copiar análisis'">
-              <lucide-icon [name]="copiedKeys['retrabajo'] ? Check : Copy" size="12"></lucide-icon>
-              <span>{{ copiedKeys['retrabajo'] ? '¡Copiado!' : 'Copiar' }}</span>
-            </button>
+            <div class="flex items-center gap-2">
+              <button (click)="runSingleMetricAI('retrabajo')" 
+                      [disabled]="isAnalyzing || analyzingMetrics['retrabajo']"
+                      class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-indigo-400 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                      title="Volver a analizar esta métrica con IA">
+                <lucide-icon [name]="Sparkles" size="12"></lucide-icon>
+                <span>Re-analizar</span>
+              </button>
+              <button (click)="copyAnalysis('retrabajo', metricAnalyses['retrabajo'])" 
+                      class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                      [title]="copiedKeys['retrabajo'] ? 'Copiado' : 'Copiar análisis'">
+                <lucide-icon [name]="copiedKeys['retrabajo'] ? Check : Copy" size="12"></lucide-icon>
+                <span>{{ copiedKeys['retrabajo'] ? '¡Copiado!' : 'Copiar' }}</span>
+              </button>
+            </div>
           </h4>
           <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-300" [innerHTML]="formatAnalysisText(metricAnalyses['retrabajo'])">
           </div>
         </div>
-        <div *ngIf="!metricAnalyses['retrabajo']" class="mt-6 text-sm opacity-50 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
-          Genera el análisis IA para visualizar las recomendaciones.
+
+        <div *ngIf="!analyzingMetrics['retrabajo'] && !metricAnalyses['retrabajo']" class="mt-6 text-sm opacity-90 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg flex items-center justify-between">
+          <span class="opacity-60">Genera el análisis IA para visualizar las recomendaciones.</span>
+          <button (click)="runSingleMetricAI('retrabajo')" [disabled]="isAnalyzing || !metrics"
+                  class="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow transition-all cursor-pointer">
+            <lucide-icon [name]="Sparkles" size="13"></lucide-icon>
+            <span>Analizar métrica</span>
+          </button>
         </div>
 
       </div>
@@ -1100,7 +1325,22 @@ import { forkJoin } from 'rxjs';
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-emerald-500 overflow-hidden">
       <div class="p-6">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.4 Métrica: Densidad de Defectos<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+          
+            <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
+              <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.4 Métrica: Densidad de Defectos<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+              <button 
+                (click)="openCommentModal('densidad', '3.4 Métrica: Densidad de Defectos')"
+                [ngClass]="{
+                  'border-emerald-300 bg-emerald-50/40 text-emerald-600 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-400': metricComments['densidad'] && metricComments['densidad'].trim(),
+                  'border-slate-200 bg-slate-50/50 text-slate-500 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-500': !metricComments['densidad'] || !metricComments['densidad'].trim()
+                }"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
+                <lucide-icon [name]="MessageSquare" size="13" [class.text-emerald-500]="metricComments['densidad'] && metricComments['densidad'].trim()"></lucide-icon>
+                <span>{{ metricComments['densidad'] && metricComments['densidad'].trim() ? 'Nota Guardada' : 'Agregar Nota/Contexto' }}</span>
+                <span *ngIf="metricComments['densidad'] && metricComments['densidad'].trim()" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              </button>
+            </div>
+    
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
             'bg-green-100 text-green-700': metrics.defectDensity.status === 'green',
             'bg-yellow-100 text-yellow-700': metrics.defectDensity.status === 'yellow',
@@ -1192,24 +1432,60 @@ import { forkJoin } from 'rxjs';
         </div>
 
         <div class="space-y-4 mb-8">
-          <div *ngIf="metricAnalyses['densidad de defectos']" class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)]">
+          <!-- Skeleton Screen -->
+          <div *ngIf="analyzingMetrics['densidad de defectos']" class="bg-slate-50 dark:bg-slate-900/60 p-5 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 shadow-sm animate-pulse space-y-3 relative overflow-hidden">
+            <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/80 pb-2 mb-3">
+              <div class="flex items-center gap-2">
+                <div class="w-4 h-4 rounded-full bg-indigo-500/30 flex items-center justify-center">
+                  <lucide-icon [name]="Sparkles" size="13" class="text-indigo-600 dark:text-indigo-400 animate-spin"></lucide-icon>
+                </div>
+                <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Analizando métrica con IA...</span>
+              </div>
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                Procesando CMMI 5
+              </span>
+            </div>
+            <div class="space-y-2.5">
+              <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-5/6"></div>
+              <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-full"></div>
+              <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-4/6"></div>
+              <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-11/12"></div>
+              <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-3/4"></div>
+            </div>
+          </div>
+
+          <div *ngIf="!analyzingMetrics['densidad de defectos'] && metricAnalyses['densidad de defectos']" class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)]">
             <h4 class="text-xs font-bold uppercase text-[rgb(255,77,17)] mb-2 flex items-center justify-between w-full">
               <span class="flex items-center">
                 <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
                 Análisis de resultados e Acciones
               </span>
-              <button (click)="copyAnalysis('densidad de defectos', metricAnalyses['densidad de defectos'])" 
-                      class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
-                      [title]="copiedKeys['densidad de defectos'] ? 'Copiado' : 'Copiar análisis'">
-                <lucide-icon [name]="copiedKeys['densidad de defectos'] ? Check : Copy" size="12"></lucide-icon>
-                <span>{{ copiedKeys['densidad de defectos'] ? '¡Copiado!' : 'Copiar' }}</span>
-              </button>
+              <div class="flex items-center gap-2">
+                <button (click)="runSingleMetricAI('densidad de defectos')" 
+                        [disabled]="isAnalyzing || analyzingMetrics['densidad de defectos']"
+                        class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-indigo-400 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                        title="Volver a analizar esta métrica con IA">
+                  <lucide-icon [name]="Sparkles" size="12"></lucide-icon>
+                  <span>Re-analizar</span>
+                </button>
+                <button (click)="copyAnalysis('densidad de defectos', metricAnalyses['densidad de defectos'])" 
+                        class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                        [title]="copiedKeys['densidad de defectos'] ? 'Copiado' : 'Copiar análisis'">
+                  <lucide-icon [name]="copiedKeys['densidad de defectos'] ? Check : Copy" size="12"></lucide-icon>
+                  <span>{{ copiedKeys['densidad de defectos'] ? '¡Copiado!' : 'Copiar' }}</span>
+                </button>
+              </div>
             </h4>
             <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-300" [innerHTML]="formatAnalysisText(metricAnalyses['densidad de defectos'])">
             </div>
           </div>
-          <div *ngIf="!metricAnalyses['densidad de defectos']" class="text-sm opacity-50 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
-            Genera el análisis IA para visualizar las recomendaciones.
+          <div *ngIf="!analyzingMetrics['densidad de defectos'] && !metricAnalyses['densidad de defectos']" class="text-sm opacity-90 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg flex items-center justify-between">
+            <span class="opacity-60">Genera el análisis IA para visualizar las recomendaciones.</span>
+            <button (click)="runSingleMetricAI('densidad de defectos')" [disabled]="isAnalyzing || !metrics"
+                    class="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow transition-all cursor-pointer">
+              <lucide-icon [name]="Sparkles" size="13"></lucide-icon>
+              <span>Analizar métrica</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1219,7 +1495,22 @@ import { forkJoin } from 'rxjs';
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-amber-500 overflow-hidden">
       <div class="p-6">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.5 Métrica: Eficiencia en la Eliminación de Defectos (EED)<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+          
+            <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
+              <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.5 Métrica: Eficiencia en la Eliminación de Defectos (EED)<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+              <button 
+                (click)="openCommentModal('eed', '3.5 Métrica: Eficiencia en la Eliminación de Defectos (EED)')"
+                [ngClass]="{
+                  'border-emerald-300 bg-emerald-50/40 text-emerald-600 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-400': metricComments['eed'] && metricComments['eed'].trim(),
+                  'border-slate-200 bg-slate-50/50 text-slate-500 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-500': !metricComments['eed'] || !metricComments['eed'].trim()
+                }"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
+                <lucide-icon [name]="MessageSquare" size="13" [class.text-emerald-500]="metricComments['eed'] && metricComments['eed'].trim()"></lucide-icon>
+                <span>{{ metricComments['eed'] && metricComments['eed'].trim() ? 'Nota Guardada' : 'Agregar Nota/Contexto' }}</span>
+                <span *ngIf="metricComments['eed'] && metricComments['eed'].trim()" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              </button>
+            </div>
+    
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
             'bg-green-100 text-green-700': metrics.defectRemovalEfficiency.status === 'green',
             'bg-yellow-100 text-yellow-700': metrics.defectRemovalEfficiency.status === 'yellow',
@@ -1291,7 +1582,7 @@ import { forkJoin } from 'rxjs';
                 <lucide-icon [name]="TrendingUp" size="16" class="text-amber-500"></lucide-icon>
                 LÍNEA DE TIEMPO DEL SPRINT (EED)
               </h4>
-              <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Distribución de requerimientos (REQ/FEATURE) en el tiempo con sus defectos asociados ramificados</p>
+              <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Distribución de requerimientos ({{ getPrefix('User Story') }}/{{ getPrefix('Feature') }}) en el tiempo con sus defectos asociados ramificados</p>
             </div>
             
             <div class="flex flex-col lg:flex-row lg:items-center gap-4">
@@ -1428,7 +1719,7 @@ import { forkJoin } from 'rxjs';
                       }"
                       (click)="openWorkItem(node.id)">
                       <span class="text-[8px] font-black leading-none">
-                        {{ node.type === 'Feature' ? 'FEATURE' : (node.type === 'User Story' ? 'REQ' : node.type === 'SprintStandalone' ? 'BG' : 'KB') }}
+                        {{ (node.type === 'Feature' || node.type === 'User Story') ? getPrefix(node.type) : (node.type === 'SprintStandalone' ? 'BG' : 'KB') }}
                       </span>
                     </div>
 
@@ -1448,7 +1739,7 @@ import { forkJoin } from 'rxjs';
                             'bg-emerald-600': node.type === 'SprintStandalone',
                             'bg-blue-500': node.type === 'Standalone'
                           }">
-                          {{ node.type === 'Feature' ? 'FEATURE' : (node.type === 'User Story' ? 'REQ' : node.type === 'SprintStandalone' ? 'BUGS SIN REQ/FEATURE' : 'KANBAN (OTRO SPRINT)') }}
+                          {{ (node.type === 'Feature' || node.type === 'User Story') ? getPrefix(node.type) : (node.type === 'SprintStandalone' ? 'BUGS SIN ' + getPrefix('User Story') + '/' + getPrefix('Feature') : 'KANBAN (OTRO SPRINT)') }}
                         </span>
                         <span class="text-[10px] font-black text-slate-400">{{ ['kanban_standalone', 'sprint_standalone'].includes(node.id) ? '' : '#' + node.id }}</span>
                       </div>
@@ -1519,7 +1810,7 @@ import { forkJoin } from 'rxjs';
                 <div class="flex items-center justify-between mb-2">
                   <div class="flex items-center gap-2">
                     <span class="w-1.5 h-3 rounded-full bg-indigo-500 animate-pulse"></span>
-                    <h5 class="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-400">Defectos del Sprint (REQ y FEATURE)</h5>
+                    <h5 class="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-400">Defectos del Sprint (US y FT)</h5>
                   </div>
                   <span class="text-[9px] font-bold text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-800/40 px-2 py-0.5 rounded-md border border-slate-100 dark:border-slate-800/50">Cantidad: {{ getSprintBugsList().length }}</span>
                 </div>
@@ -1663,24 +1954,60 @@ import { forkJoin } from 'rxjs';
         </div>
 
         <div class="space-y-4 mb-8">
-          <div *ngIf="metricAnalyses['eed']" class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)]">
+          <!-- Skeleton Screen -->
+          <div *ngIf="analyzingMetrics['eed']" class="bg-slate-50 dark:bg-slate-900/60 p-5 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 shadow-sm animate-pulse space-y-3 relative overflow-hidden">
+            <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/80 pb-2 mb-3">
+              <div class="flex items-center gap-2">
+                <div class="w-4 h-4 rounded-full bg-indigo-500/30 flex items-center justify-center">
+                  <lucide-icon [name]="Sparkles" size="13" class="text-indigo-600 dark:text-indigo-400 animate-spin"></lucide-icon>
+                </div>
+                <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Analizando métrica con IA...</span>
+              </div>
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                Procesando CMMI 5
+              </span>
+            </div>
+            <div class="space-y-2.5">
+              <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-5/6"></div>
+              <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-full"></div>
+              <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-4/6"></div>
+              <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-11/12"></div>
+              <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-3/4"></div>
+            </div>
+          </div>
+
+          <div *ngIf="!analyzingMetrics['eed'] && metricAnalyses['eed']" class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)]">
             <h4 class="text-xs font-bold uppercase text-[rgb(255,77,17)] mb-2 flex items-center justify-between w-full">
               <span class="flex items-center">
                 <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
                 Análisis de resultados e Acciones
               </span>
-              <button (click)="copyAnalysis('eed', metricAnalyses['eed'])" 
-                      class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
-                      [title]="copiedKeys['eed'] ? 'Copiado' : 'Copiar análisis'">
-                <lucide-icon [name]="copiedKeys['eed'] ? Check : Copy" size="12"></lucide-icon>
-                <span>{{ copiedKeys['eed'] ? '¡Copiado!' : 'Copiar' }}</span>
-              </button>
+              <div class="flex items-center gap-2">
+                <button (click)="runSingleMetricAI('eed')" 
+                        [disabled]="isAnalyzing || analyzingMetrics['eed']"
+                        class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-indigo-400 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                        title="Volver a analizar esta métrica con IA">
+                  <lucide-icon [name]="Sparkles" size="12"></lucide-icon>
+                  <span>Re-analizar</span>
+                </button>
+                <button (click)="copyAnalysis('eed', metricAnalyses['eed'])" 
+                        class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                        [title]="copiedKeys['eed'] ? 'Copiado' : 'Copiar análisis'">
+                  <lucide-icon [name]="copiedKeys['eed'] ? Check : Copy" size="12"></lucide-icon>
+                  <span>{{ copiedKeys['eed'] ? '¡Copiado!' : 'Copiar' }}</span>
+                </button>
+              </div>
             </h4>
             <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-400" [innerHTML]="formatAnalysisText(metricAnalyses['eed'])">
             </div>
           </div>
-          <div *ngIf="!metricAnalyses['eed']" class="text-sm opacity-50 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
-            Genera el análisis IA para visualizar las recomendaciones.
+          <div *ngIf="!analyzingMetrics['eed'] && !metricAnalyses['eed']" class="text-sm opacity-90 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg flex items-center justify-between">
+            <span class="opacity-60">Genera el análisis IA para visualizar las recomendaciones.</span>
+            <button (click)="runSingleMetricAI('eed')" [disabled]="isAnalyzing || !metrics"
+                    class="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow transition-all cursor-pointer">
+              <lucide-icon [name]="Sparkles" size="13"></lucide-icon>
+              <span>Analizar métrica</span>
+            </button>
           </div>
         </div>
       </div>
@@ -1690,7 +2017,22 @@ import { forkJoin } from 'rxjs';
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-indigo-500 overflow-hidden mt-8">
       <div class="p-6">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.6 Métrica: Porcentaje de Bugs Escapados<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+          
+            <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
+              <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.6 Métrica: Porcentaje de Bugs Escapados<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+              <button 
+                (click)="openCommentModal('escaped', '3.6 Métrica: Porcentaje de Bugs Escapados')"
+                [ngClass]="{
+                  'border-emerald-300 bg-emerald-50/40 text-emerald-600 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-400': metricComments['escaped'] && metricComments['escaped'].trim(),
+                  'border-slate-200 bg-slate-50/50 text-slate-500 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-500': !metricComments['escaped'] || !metricComments['escaped'].trim()
+                }"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
+                <lucide-icon [name]="MessageSquare" size="13" [class.text-emerald-500]="metricComments['escaped'] && metricComments['escaped'].trim()"></lucide-icon>
+                <span>{{ metricComments['escaped'] && metricComments['escaped'].trim() ? 'Nota Guardada' : 'Agregar Nota/Contexto' }}</span>
+                <span *ngIf="metricComments['escaped'] && metricComments['escaped'].trim()" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              </button>
+            </div>
+    
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
             'bg-green-100 text-green-700': filteredEscapedBugs.status === 'green',
             'bg-yellow-100 text-yellow-700': filteredEscapedBugs.status === 'yellow',
@@ -1887,24 +2229,60 @@ import { forkJoin } from 'rxjs';
 
         <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6">
           <div class="space-y-4">
-            <div *ngIf="metricAnalyses['escaped']" class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)]">
+            <!-- Skeleton Screen -->
+            <div *ngIf="analyzingMetrics['escaped']" class="bg-slate-50 dark:bg-slate-900/60 p-5 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 shadow-sm animate-pulse space-y-3 relative overflow-hidden">
+              <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/80 pb-2 mb-3">
+                <div class="flex items-center gap-2">
+                  <div class="w-4 h-4 rounded-full bg-indigo-500/30 flex items-center justify-center">
+                    <lucide-icon [name]="Sparkles" size="13" class="text-indigo-600 dark:text-indigo-400 animate-spin"></lucide-icon>
+                  </div>
+                  <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Analizando métrica con IA...</span>
+                </div>
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                  Procesando CMMI 5
+                </span>
+              </div>
+              <div class="space-y-2.5">
+                <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-5/6"></div>
+                <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-full"></div>
+                <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-4/6"></div>
+                <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-11/12"></div>
+                <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-3/4"></div>
+              </div>
+            </div>
+
+            <div *ngIf="!analyzingMetrics['escaped'] && metricAnalyses['escaped']" class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)]">
               <h4 class="text-xs font-bold uppercase text-[rgb(255,77,17)] mb-2 flex items-center justify-between w-full">
                 <span class="flex items-center">
                   <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
                   Análisis de resultados e Acciones
                 </span>
-                <button (click)="copyAnalysis('escaped', metricAnalyses['escaped'])" 
-                        class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
-                        [title]="copiedKeys['escaped'] ? 'Copiado' : 'Copiar análisis'">
-                  <lucide-icon [name]="copiedKeys['escaped'] ? Check : Copy" size="12"></lucide-icon>
-                  <span>{{ copiedKeys['escaped'] ? '¡Copiado!' : 'Copiar' }}</span>
-                </button>
+                <div class="flex items-center gap-2">
+                  <button (click)="runSingleMetricAI('escaped')" 
+                          [disabled]="isAnalyzing || analyzingMetrics['escaped']"
+                          class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-indigo-400 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                          title="Volver a analizar esta métrica con IA">
+                    <lucide-icon [name]="Sparkles" size="12"></lucide-icon>
+                    <span>Re-analizar</span>
+                  </button>
+                  <button (click)="copyAnalysis('escaped', metricAnalyses['escaped'])" 
+                          class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                          [title]="copiedKeys['escaped'] ? 'Copiado' : 'Copiar análisis'">
+                    <lucide-icon [name]="copiedKeys['escaped'] ? Check : Copy" size="12"></lucide-icon>
+                    <span>{{ copiedKeys['escaped'] ? '¡Copiado!' : 'Copiar' }}</span>
+                  </button>
+                </div>
               </h4>
               <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-300" [innerHTML]="formatAnalysisText(metricAnalyses['escaped'])">
               </div>
             </div>
-            <div *ngIf="!metricAnalyses['escaped']" class="text-sm opacity-50 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg">
-              Genera el análisis IA para visualizar las recomendaciones.
+            <div *ngIf="!analyzingMetrics['escaped'] && !metricAnalyses['escaped']" class="text-sm opacity-90 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg flex items-center justify-between">
+              <span class="opacity-60">Genera el análisis IA para visualizar las recomendaciones.</span>
+              <button (click)="runSingleMetricAI('escaped')" [disabled]="isAnalyzing || !metrics"
+                      class="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow transition-all cursor-pointer">
+                <lucide-icon [name]="Sparkles" size="13"></lucide-icon>
+                <span>Analizar métrica</span>
+              </button>
             </div>
           </div>
         </div>
@@ -1915,7 +2293,22 @@ import { forkJoin } from 'rxjs';
     <!-- Section 3.7: Test Execution / Ejecución de Pruebas -->
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-emerald-500 overflow-hidden mt-8">
       <div class="p-6">
-        <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight mb-2">3.7 Métrica: % Ejecución de Pruebas<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+        
+            <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
+              <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.7 Métrica: % Ejecución de Pruebas<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+              <button 
+                (click)="openCommentModal('runRate', '3.7 Métrica: % Ejecución de Pruebas')"
+                [ngClass]="{
+                  'border-emerald-300 bg-emerald-50/40 text-emerald-600 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-400': metricComments['runRate'] && metricComments['runRate'].trim(),
+                  'border-slate-200 bg-slate-50/50 text-slate-500 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-500': !metricComments['runRate'] || !metricComments['runRate'].trim()
+                }"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
+                <lucide-icon [name]="MessageSquare" size="13" [class.text-emerald-500]="metricComments['runRate'] && metricComments['runRate'].trim()"></lucide-icon>
+                <span>{{ metricComments['runRate'] && metricComments['runRate'].trim() ? 'Nota Guardada' : 'Agregar Nota/Contexto' }}</span>
+                <span *ngIf="metricComments['runRate'] && metricComments['runRate'].trim()" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              </button>
+            </div>
+    
 
         <p class="text-xs text-slate-500 mb-6 leading-relaxed bg-slate-50 dark:bg-slate-800/50 p-3 rounded-lg border-l-2 border-emerald-500">
           Esta métrica calcula el porcentaje de ejecución de pruebas en el proceso de desarrollo de software.<br/>
@@ -1927,47 +2320,47 @@ import { forkJoin } from 'rxjs';
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 mb-8">
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Total Test Points</div>
-            <div class="text-2xl font-bold">{{ metrics?.testExecution?.totalTestPoints || 0 }}</div>
+            <div class="text-2xl font-bold">{{ metrics.testExecution?.totalTestPoints || 0 }}</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Passed en Tiempo</div>
-            <div class="text-2xl font-bold">{{ metrics?.testExecution?.passedEnTiempo || 0 }}</div>
+            <div class="text-2xl font-bold">{{ metrics.testExecution?.passedEnTiempo || 0 }}</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Passed fuera de Tiempo</div>
-            <div class="text-2xl font-bold">{{ metrics?.testExecution?.passedFueraDeTiempo || 0 }}</div>
+            <div class="text-2xl font-bold">{{ metrics.testExecution?.passedFueraDeTiempo || 0 }}</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Failed</div>
-            <div class="text-2xl font-bold">{{ metrics?.testExecution?.failed || 0 }}</div>
+            <div class="text-2xl font-bold">{{ metrics.testExecution?.failed || 0 }}</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Blocked</div>
-            <div class="text-2xl font-bold">{{ metrics?.testExecution?.blocked || 0 }}</div>
+            <div class="text-2xl font-bold">{{ metrics.testExecution?.blocked || 0 }}</div>
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-slate-400 uppercase font-bold mb-1">Not Executed</div>
-            <div class="text-2xl font-bold">{{ metrics?.testExecution?.notExecuted || 0 }}</div>
+            <div class="text-2xl font-bold">{{ metrics.testExecution?.notExecuted || 0 }}</div>
           </div>
           <div class="p-4 rounded-xl text-center relative overflow-hidden border transition-all duration-300 flex flex-col justify-center items-center" [ngClass]="{
-            'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/10 dark:border-emerald-900/30': metrics?.testExecution?.status === 'green',
-            'bg-amber-50/50 border-amber-100 dark:bg-amber-950/10 dark:border-amber-900/30': metrics?.testExecution?.status === 'yellow',
-            'bg-rose-50/50 border-rose-100 dark:bg-rose-950/10 dark:border-rose-900/30': metrics?.testExecution?.status === 'red'
+            'bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/10 dark:border-emerald-900/30': metrics.testExecution?.status === 'green',
+            'bg-amber-50/50 border-amber-100 dark:bg-amber-950/10 dark:border-amber-900/30': metrics.testExecution?.status === 'yellow',
+            'bg-rose-50/50 border-rose-100 dark:bg-rose-950/10 dark:border-rose-900/30': metrics.testExecution?.status === 'red'
           }">
             <div class="text-xs uppercase font-bold mb-1" [ngClass]="{
-              'text-emerald-600 dark:text-emerald-400': metrics?.testExecution?.status === 'green',
-              'text-amber-600 dark:text-amber-400': metrics?.testExecution?.status === 'yellow',
-              'text-rose-600 dark:text-rose-400': metrics?.testExecution?.status === 'red'
+              'text-emerald-600 dark:text-emerald-400': metrics.testExecution?.status === 'green',
+              'text-amber-600 dark:text-amber-400': metrics.testExecution?.status === 'yellow',
+              'text-rose-600 dark:text-rose-400': metrics.testExecution?.status === 'red'
             }">KPI Run Rate</div>
             <div class="text-3xl font-black" [ngClass]="{
-              'text-emerald-700 dark:text-emerald-300': metrics?.testExecution?.status === 'green',
-              'text-amber-700 dark:text-amber-300': metrics?.testExecution?.status === 'yellow',
-              'text-rose-700 dark:text-rose-300': metrics?.testExecution?.status === 'red'
-            }">{{ metrics?.testExecution?.rate?.toFixed(2) || '0.00' }}%</div>
+              'text-emerald-700 dark:text-emerald-300': metrics.testExecution?.status === 'green',
+              'text-amber-700 dark:text-amber-300': metrics.testExecution?.status === 'yellow',
+              'text-rose-700 dark:text-rose-300': metrics.testExecution?.status === 'red'
+            }">{{ metrics.testExecution?.rate?.toFixed(2) || '0.00' }}%</div>
             <div class="text-[8pt] opacity-85" [ngClass]="{
-              'text-emerald-600/85 dark:text-emerald-400/85': metrics?.testExecution?.status === 'green',
-              'text-amber-600/85 dark:text-amber-400/85': metrics?.testExecution?.status === 'yellow',
-              'text-rose-600/85 dark:text-rose-400/85': metrics?.testExecution?.status === 'red'
+              'text-emerald-600/85 dark:text-emerald-400/85': metrics.testExecution?.status === 'green',
+              'text-amber-600/85 dark:text-amber-400/85': metrics.testExecution?.status === 'yellow',
+              'text-rose-600/85 dark:text-rose-400/85': metrics.testExecution?.status === 'red'
             }">Umbrales: 90%, 80%</div>
           </div>
         </div>
@@ -2049,34 +2442,73 @@ import { forkJoin } from 'rxjs';
             </div>
             <!-- Mini legend totals -->
             <div class="mt-3 grid grid-cols-2 gap-1.5 text-[10px]">
-              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">En Tiempo: <strong>{{ metrics?.testExecution?.passedEnTiempo || 0 }}</strong></span></div>
-              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Fuera Tiempo: <strong>{{ metrics?.testExecution?.passedFueraDeTiempo || 0 }}</strong></span></div>
-              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Failed: <strong>{{ metrics?.testExecution?.failed || 0 }}</strong></span></div>
-              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Blocked: <strong>{{ metrics?.testExecution?.blocked || 0 }}</strong></span></div>
-              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">N/Exec: <strong>{{ metrics?.testExecution?.notExecuted || 0 }}</strong></span></div>
-              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-400 dark:bg-slate-600 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">N/A: <strong>{{ metrics?.testExecution?.notApplicable || 0 }}</strong></span></div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">En Tiempo: <strong>{{ metrics.testExecution?.passedEnTiempo || 0 }}</strong></span></div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Fuera Tiempo: <strong>{{ metrics.testExecution?.passedFueraDeTiempo || 0 }}</strong></span></div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Failed: <strong>{{ metrics.testExecution?.failed || 0 }}</strong></span></div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">Blocked: <strong>{{ metrics.testExecution?.blocked || 0 }}</strong></span></div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">N/Exec: <strong>{{ metrics.testExecution?.notExecuted || 0 }}</strong></span></div>
+              <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-slate-400 dark:bg-slate-600 shrink-0"></span><span class="text-slate-600 dark:text-slate-400">N/A: <strong>{{ metrics.testExecution?.notApplicable || 0 }}</strong></span></div>
             </div>
           </div>
         </div>
 
         <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6">
           <div class="space-y-4">
-            <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)]">
+            <!-- Skeleton Screen -->
+            <div *ngIf="analyzingMetrics['testExecution']" class="bg-slate-50 dark:bg-slate-900/60 p-5 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 shadow-sm animate-pulse space-y-3 relative overflow-hidden">
+              <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/80 pb-2 mb-3">
+                <div class="flex items-center gap-2">
+                  <div class="w-4 h-4 rounded-full bg-indigo-500/30 flex items-center justify-center">
+                    <lucide-icon [name]="Sparkles" size="13" class="text-indigo-600 dark:text-indigo-400 animate-spin"></lucide-icon>
+                  </div>
+                  <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Analizando métrica con IA...</span>
+                </div>
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                  Procesando CMMI 5
+                </span>
+              </div>
+              <div class="space-y-2.5">
+                <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-5/6"></div>
+                <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-full"></div>
+                <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-4/6"></div>
+                <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-11/12"></div>
+                <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-3/4"></div>
+              </div>
+            </div>
+
+            <div *ngIf="!analyzingMetrics['testExecution'] && (metricAnalyses['testExecution'] || metricAnalyses['ejecución de pruebas'])" class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)]">
               <h4 class="text-xs font-bold uppercase text-[rgb(255,77,17)] mb-2 flex items-center justify-between w-full">
                 <span class="flex items-center">
                   <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
                   Análisis de resultados e Acciones
                 </span>
-                <button *ngIf="metricAnalyses['testExecution'] || metricAnalyses['ejecución de pruebas']" 
-                        (click)="copyAnalysis('testExecution', getTestExecutionAnalysis())" 
-                        class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
-                        [title]="copiedKeys['testExecution'] ? 'Copiado' : 'Copiar análisis'">
-                  <lucide-icon [name]="copiedKeys['testExecution'] ? Check : Copy" size="12"></lucide-icon>
-                  <span>{{ copiedKeys['testExecution'] ? '¡Copiado!' : 'Copiar' }}</span>
-                </button>
+                <div class="flex items-center gap-2">
+                  <button (click)="runSingleMetricAI('testExecution')" 
+                          [disabled]="isAnalyzing || analyzingMetrics['testExecution']"
+                          class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-indigo-400 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                          title="Volver a analizar esta métrica con IA">
+                    <lucide-icon [name]="Sparkles" size="12"></lucide-icon>
+                    <span>Re-analizar</span>
+                  </button>
+                  <button (click)="copyAnalysis('testExecution', getTestExecutionAnalysis())" 
+                          class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                          [title]="copiedKeys['testExecution'] ? 'Copiado' : 'Copiar análisis'">
+                    <lucide-icon [name]="copiedKeys['testExecution'] ? Check : Copy" size="12"></lucide-icon>
+                    <span>{{ copiedKeys['testExecution'] ? '¡Copiado!' : 'Copiar' }}</span>
+                  </button>
+                </div>
               </h4>
               <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-400" [innerHTML]="formatAnalysisText(getTestExecutionAnalysis())">
               </div>
+            </div>
+
+            <div *ngIf="!analyzingMetrics['testExecution'] && !metricAnalyses['testExecution'] && !metricAnalyses['ejecución de pruebas']" class="text-sm opacity-90 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg flex items-center justify-between">
+              <span class="opacity-60">Genera el análisis IA para visualizar las recomendaciones.</span>
+              <button (click)="runSingleMetricAI('testExecution')" [disabled]="isAnalyzing || !metrics"
+                      class="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow transition-all cursor-pointer">
+                <lucide-icon [name]="Sparkles" size="13"></lucide-icon>
+                <span>Analizar métrica</span>
+              </button>
             </div>
           </div>
         </div>
@@ -2088,7 +2520,22 @@ import { forkJoin } from 'rxjs';
     <section class="glass-card !bg-white dark:!bg-slate-900 border-l-4 border-teal-500 overflow-hidden mt-8">
       <div class="p-6">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.8 Métrica: % Pruebas Satisfactorias<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+          
+            <div class="flex items-center justify-between gap-4 mb-4 flex-wrap">
+              <h3 class="text-lg font-bold text-slate-400 uppercase tracking-tight">3.8 Métrica: % Pruebas Satisfactorias<span *ngIf="selectedSprintDisplayName" class="text-indigo-500 dark:text-indigo-400"> - {{ selectedSprintDisplayName }}</span></h3>
+              <button 
+                (click)="openCommentModal('passRate', '3.8 Métrica: % Pruebas Satisfactorias')"
+                [ngClass]="{
+                  'border-emerald-300 bg-emerald-50/40 text-emerald-600 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-400': metricComments['passRate'] && metricComments['passRate'].trim(),
+                  'border-slate-200 bg-slate-50/50 text-slate-500 dark:border-slate-700/60 dark:bg-slate-800/20 dark:text-slate-500': !metricComments['passRate'] || !metricComments['passRate'].trim()
+                }"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all active:scale-95 shadow-sm">
+                <lucide-icon [name]="MessageSquare" size="13" [class.text-emerald-500]="metricComments['passRate'] && metricComments['passRate'].trim()"></lucide-icon>
+                <span>{{ metricComments['passRate'] && metricComments['passRate'].trim() ? 'Nota Guardada' : 'Agregar Nota/Contexto' }}</span>
+                <span *ngIf="metricComments['passRate'] && metricComments['passRate'].trim()" class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              </button>
+            </div>
+    
           <div class="px-3 py-1 rounded-full text-xs font-bold uppercase" [ngClass]="{
             'bg-green-100 text-green-700': m38Stats.status === 'green',
             'bg-yellow-100 text-yellow-700': m38Stats.status === 'yellow',
@@ -2136,7 +2583,7 @@ import { forkJoin } from 'rxjs';
           </div>
           <div class="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
             <div class="text-[9px] text-pink-500 uppercase font-bold mb-1">Paused</div>
-            <div class="text-xl font-bold text-pink-500">{{ m38Stats.paused ?? 0 }}</div>
+            <div class="text-xl font-bold text-pink-500">{{ m38Stats.paused }}</div>
           </div>
           
           <div class="p-3.5 rounded-xl text-center relative overflow-hidden border transition-all duration-300 flex flex-col justify-center items-center col-span-2 md:col-span-1" [ngClass]="{
@@ -2233,22 +2680,61 @@ import { forkJoin } from 'rxjs';
 
         <div class="mt-8 border-t border-slate-100 dark:border-slate-800 pt-6">
           <div class="space-y-4">
-            <div class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)]">
+            <!-- Skeleton Screen -->
+            <div *ngIf="analyzingMetrics['satisfactoryTests']" class="bg-slate-50 dark:bg-slate-900/60 p-5 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 shadow-sm animate-pulse space-y-3 relative overflow-hidden">
+              <div class="flex items-center justify-between border-b border-slate-200/60 dark:border-slate-800/80 pb-2 mb-3">
+                <div class="flex items-center gap-2">
+                  <div class="w-4 h-4 rounded-full bg-indigo-500/30 flex items-center justify-center">
+                    <lucide-icon [name]="Sparkles" size="13" class="text-indigo-600 dark:text-indigo-400 animate-spin"></lucide-icon>
+                  </div>
+                  <span class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Analizando métrica con IA...</span>
+                </div>
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                  Procesando CMMI 5
+                </span>
+              </div>
+              <div class="space-y-2.5">
+                <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-5/6"></div>
+                <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-full"></div>
+                <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-4/6"></div>
+                <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-11/12"></div>
+                <div class="h-3.5 bg-slate-200 dark:bg-slate-700/70 rounded-full w-3/4"></div>
+              </div>
+            </div>
+
+            <div *ngIf="!analyzingMetrics['satisfactoryTests'] && (metricAnalyses['satisfactoryTests'] || metricAnalyses['pruebas satisfactorias'])" class="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-lg border border-[rgb(255,77,17)]">
               <h4 class="text-xs font-bold uppercase text-[rgb(255,77,17)] mb-2 flex items-center justify-between w-full">
                 <span class="flex items-center">
                   <lucide-icon [name]="Sparkles" size="14" class="mr-1"></lucide-icon>
                   Análisis de resultados e Acciones
                 </span>
-                <button *ngIf="metricAnalyses['satisfactoryTests'] || metricAnalyses['pruebas satisfactorias']" 
-                        (click)="copyAnalysis('satisfactoryTests', getSatisfactoryTestsAnalysis())" 
-                        class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
-                        [title]="copiedKeys['satisfactoryTests'] ? 'Copiado' : 'Copiar análisis'">
-                  <lucide-icon [name]="copiedKeys['satisfactoryTests'] ? Check : Copy" size="12"></lucide-icon>
-                  <span>{{ copiedKeys['satisfactoryTests'] ? '¡Copiado!' : 'Copiar' }}</span>
-                </button>
+                <div class="flex items-center gap-2">
+                  <button (click)="runSingleMetricAI('satisfactoryTests')" 
+                          [disabled]="isAnalyzing || analyzingMetrics['satisfactoryTests']"
+                          class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-indigo-400 transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                          title="Volver a analizar esta métrica con IA">
+                    <lucide-icon [name]="Sparkles" size="12"></lucide-icon>
+                    <span>Re-analizar</span>
+                  </button>
+                  <button (click)="copyAnalysis('satisfactoryTests', getSatisfactoryTestsAnalysis())" 
+                          class="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-[rgb(255,77,17)] transition-all flex items-center gap-1 text-[10px] normal-case cursor-pointer"
+                          [title]="copiedKeys['satisfactoryTests'] ? 'Copiado' : 'Copiar análisis'">
+                    <lucide-icon [name]="copiedKeys['satisfactoryTests'] ? Check : Copy" size="12"></lucide-icon>
+                    <span>{{ copiedKeys['satisfactoryTests'] ? '¡Copiado!' : 'Copiar' }}</span>
+                  </button>
+                </div>
               </h4>
               <div class="text-sm leading-relaxed text-slate-700 dark:text-slate-400" [innerHTML]="formatAnalysisText(getSatisfactoryTestsAnalysis())">
               </div>
+            </div>
+
+            <div *ngIf="!analyzingMetrics['satisfactoryTests'] && !metricAnalyses['satisfactoryTests'] && !metricAnalyses['pruebas satisfactorias']" class="text-sm opacity-90 p-4 bg-slate-50 dark:bg-slate-800/30 rounded-lg flex items-center justify-between">
+              <span class="opacity-60">Genera el análisis IA para visualizar las recomendaciones.</span>
+              <button (click)="runSingleMetricAI('satisfactoryTests')" [disabled]="isAnalyzing || !metrics"
+                      class="px-2.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow transition-all cursor-pointer">
+                <lucide-icon [name]="Sparkles" size="13"></lucide-icon>
+                <span>Analizar métrica</span>
+              </button>
             </div>
           </div>
         </div>
@@ -2529,7 +3015,7 @@ import { forkJoin } from 'rxjs';
     <!-- Chat Input Area -->
     <form (submit)="sendChatMessage(); $event.preventDefault()" 
           class="border-t border-slate-100 dark:border-slate-800/60 p-3 bg-white dark:bg-slate-900 flex gap-2 shrink-0 items-center">
-      <input #chatInput [(ngModel)]="chatQuestion" 
+      <input [(ngModel)]="chatQuestion" 
              name="chatQuestion"
              type="text" 
              placeholder="Pregunta sobre las métricas, ISWs, bugs..." 
@@ -2544,9 +3030,91 @@ import { forkJoin } from 'rxjs';
     </form>
   </div>
 </div>
-  `
+  
+    <!-- Dialog / Modal de Comentarios -->
+    <div *ngIf="activeCommentMetricKey" class="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <!-- Backdrop -->
+      <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-md" (click)="closeCommentModal()"></div>
+      
+      <!-- Modal Content Card -->
+      <div class="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200">
+        <!-- Header -->
+        <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="p-2 bg-indigo-500/10 text-indigo-500 rounded-xl">
+              <lucide-icon [name]="MessageSquare" size="20"></lucide-icon>
+            </div>
+            <div>
+              <h4 class="text-xs font-black uppercase text-slate-400 dark:text-slate-500 tracking-wider">Notas de Auditoría</h4>
+              <h3 class="text-base font-bold text-slate-800 dark:text-white leading-tight mt-0.5">{{ activeCommentTitle }}</h3>
+            </div>
+          </div>
+          <button (click)="closeCommentModal()" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+            <lucide-icon [name]="X" size="18"></lucide-icon>
+          </button>
+        </div>
+        
+        <!-- Body -->
+        <div class="p-6 space-y-4">
+          <p class="text-xs text-slate-500 dark:text-slate-400 leading-normal">
+            Ingresa comentarios, justificaciones técnicas o contexto especial de este sprint para la métrica. 
+            La Inteligencia Artificial integrará este contexto directamente como justificación en el análisis oficial.
+          </p>
+          <textarea 
+            [(ngModel)]="activeCommentText" 
+            rows="5" 
+            placeholder="Escribe aquí las observaciones del sprint (ej. 'Se detectó una desviación del 12% debido a la incapacidad médica de Yair durante 3 días...')."
+            class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none leading-relaxed text-slate-700 dark:text-slate-200 placeholder-slate-400">
+          </textarea>
+        </div>
+        
+        <!-- Footer -->
+        <div class="p-6 bg-slate-50 dark:bg-slate-950 border-t border-slate-150 dark:border-slate-800 flex items-center justify-end gap-3 text-xs font-bold">
+          <button 
+            (click)="closeCommentModal()" 
+            class="px-4 py-2 rounded-xl text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+            Cancelar
+          </button>
+          <button 
+            (click)="saveCommentFromModal()" 
+            class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/20 active:scale-95 transition-all">
+            Guardar Nota y Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+    `
 })
 export class DashboardComponent implements OnInit, AfterViewInit {
+  currentYear = new Date().getFullYear();
+
+  get accumulatedSprintRange(): string {
+    if (!this.iterations || this.iterations.length === 0) return '';
+    
+    const getCleanName = (iter: any) => {
+      if (!iter) return '';
+      let name = iter.name || '';
+      const parts = (iter.path || '').split(/[\\/]/);
+      const lastName = parts[parts.length - 1] || '';
+      return name || lastName;
+    };
+
+    // Only consider actual sprint nodes (root/container nodes have no dates)
+    const validSprints = this.iterations.filter(i => {
+      const name = getCleanName(i).toLowerCase();
+      return name.includes('sprint') || (i.startDate && (i.endDate || i.finishDate));
+    });
+
+    if (validSprints.length === 0) return '';
+
+    const firstSprintName = getCleanName(validSprints[0]);
+    const lastSprintName = getCleanName(validSprints[validSprints.length - 1]);
+
+    if (firstSprintName === lastSprintName) {
+      return firstSprintName;
+    }
+    return `${firstSprintName} ➔ ${lastSprintName}`;
+  }
   readonly TrendingUp = TrendingUp;
   readonly Copy = Copy;
   readonly Check = Check;
@@ -2574,6 +3142,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   private configService = inject(ConfigService);
   private router = inject(Router);
   private notificationService = inject(NotificationService);
+  private metricsApiService = inject(MetricsApiService);
+  private cdr = inject(ChangeDetectorRef);
 
   metrics?: CMMIMetrics;
   config = this.configService.getConfig();
@@ -2582,6 +3152,11 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   isExporting = false;
   isLoading = true;
 
+  // Database version management
+  analysisVersions: VersionInfo[] = [];
+  selectedVersionNumber: number | null = null;
+  isLoadingVersions = false;
+
   areas: any[] = [];
   selectedArea: string = '';
   iterations: any[] = [];
@@ -2589,6 +3164,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   selectedIterationName: string = 'Actual';
   chartImages: { [key: string]: string } = {};
   metricAnalyses: { [key: string]: string } = {};
+  analyzingMetrics: { [key: string]: boolean } = {};
   copiedKeys: { [key: string]: boolean } = {};
   expandedItemsM1 = new Set<string>();
   expandedItemsM2 = new Set<string>();
@@ -2619,6 +3195,75 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   isLoadingCompareEscaped = false;
   showCompareEscapedPanel = false;
 
+  // --- Comentarios de Métricas por el Usuario ---
+  metricComments: { [key: string]: string } = {};
+  expandedComments = new Set<string>();
+
+  toggleComment(metricKey: string) {
+    if (this.expandedComments.has(metricKey)) {
+      this.expandedComments.delete(metricKey);
+    } else {
+      this.expandedComments.add(metricKey);
+    }
+  }
+
+  // --- Dialog Modal de Comentarios ---
+  activeCommentMetricKey: string | null = null;
+  activeCommentText = '';
+  activeCommentTitle = '';
+
+  openCommentModal(metricKey: string, metricTitle: string) {
+    this.activeCommentMetricKey = metricKey;
+    this.activeCommentTitle = metricTitle;
+    this.activeCommentText = this.metricComments[metricKey] || '';
+  }
+
+  closeCommentModal() {
+    this.activeCommentMetricKey = null;
+    this.activeCommentText = '';
+    this.activeCommentTitle = '';
+  }
+
+  saveCommentFromModal() {
+    if (!this.activeCommentMetricKey) return;
+    
+    // Save to local object and force Angular reactivity by cloning reference
+    this.metricComments[this.activeCommentMetricKey] = this.activeCommentText;
+    this.metricComments = { ...this.metricComments };
+    
+    // Sync into existing metricAnalyses object to bypass cloud DB schema limitations
+    this.metricAnalyses[this.activeCommentMetricKey + '_comment'] = this.activeCommentText;
+    
+    // Persist to DB
+    this.saveCommentsOnly(this.activeCommentMetricKey);
+    this.closeCommentModal();
+  }
+
+  saveCommentsOnly(metricKey?: string) {
+    if (!this.selectedIteration || !this.metrics) return;
+    
+    // Sync all comments to metricAnalyses before saving
+    Object.keys(this.metricComments).forEach(key => {
+      this.metricAnalyses[key + '_comment'] = this.metricComments[key];
+    });
+
+    this.metricsApiService.saveAnalysis(
+      this.selectedIteration,
+      this.selectedSprintDisplayName || this.selectedIterationName,
+      this.metrics!,
+      this.aiAnalysis || " ", // Enforce non-empty string to avoid API 400 validator issues in Render
+      this.metricAnalyses,
+      this.metricComments
+    ).subscribe(dbRes => {
+      if (dbRes) {
+        this.notificationService.success('Comentarios guardados exitosamente.');
+        if (metricKey) {
+          this.expandedComments.delete(metricKey); // Cerrar el cuadro de nota automáticamente al guardar
+        }
+      }
+    });
+  }
+
   get selectedSprintDisplayName(): string {
     if (!this.selectedIteration) return '';
     const iter = this.iterations.find(i => i.id === this.selectedIteration || i.path === this.selectedIteration);
@@ -2637,6 +3282,15 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   getSprintBugsList() {
     if (!this.metrics?.defectRemovalEfficiency?.bugsList) return [];
     return this.metrics.defectRemovalEfficiency.bugsList.filter((item: any) => !item.isKanban);
+  }
+
+  getSortedReworkItems() {
+    if (!this.metrics?.developmentRate?.items) return [];
+    return [...this.metrics.developmentRate.items].sort((a, b) => {
+      const aRework = this.getItemReworkData(a).totalRework;
+      const bRework = this.getItemReworkData(b).totalRework;
+      return aRework - bRework; // Ordenar de menor a mayor
+    });
   }
 
   getKanbanBugsList() {
@@ -2793,7 +3447,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         this.loadData();
       },
       error: err => {
-        console.error('Dashboard: Failed to load iterations', err);
         this.iterationsLoaded = true; // unblock loadData even on failure
         if (!this.selectedIteration) {
           this.isLoading = false;
@@ -2813,9 +3466,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.selectedCompareEscapedIterations = [];
     this.comparedEscapedData = [];
     this.saveSelection();
-    if (this.selectedIteration) {
-      localStorage.removeItem('cmmi5_ai_analysis_' + this.selectedIteration);
-    }
     const iter = this.iterations.find(i => i.id === this.selectedIteration || i.path === this.selectedIteration);
     this.selectedIterationName = iter ? iter.name : 'Actual';
     this.loadData();
@@ -2881,18 +3531,49 @@ export class DashboardComponent implements OnInit, AfterViewInit {
           }
         }
 
-        // Restore cached AI analysis if present (persists across tabs/reloads if sprint is the same)
-        const cachedAnalysis = localStorage.getItem('cmmi5_ai_analysis_' + this.selectedIteration);
-        if (cachedAnalysis) {
-          this.aiAnalysis = cachedAnalysis;
-          this.parseAnalysis(cachedAnalysis);
-        } else {
-          this.aiAnalysis = '';
-          this.metricAnalyses = {};
-        }
+        // Load database version history list
+        this.loadVersionsHistory();
 
-        this.isLoading = false;
-        this.isReloading = false;
+        // 1. Check for active analysis in the Mongo database first to populate the DB badge/version selector
+        this.metricsApiService.getActiveAnalysis(this.selectedIteration).subscribe(dbAnalysis => {
+          if (dbAnalysis) {
+            this.aiAnalysis = dbAnalysis.aiAnalysis;
+            this.metricComments = dbAnalysis.metricComments || {};
+            // Extract comments from metricAnalyses for cloud schema fallback compatibility
+            if (dbAnalysis.metricAnalyses) {
+              Object.keys(dbAnalysis.metricAnalyses).forEach(key => {
+                if (key.endsWith('_comment')) {
+                  const metricKey = key.replace('_comment', '');
+                  this.metricComments[metricKey] = dbAnalysis.metricAnalyses[key];
+                }
+              });
+              this.metricComments = { ...this.metricComments };
+            }
+            // Load per-metric analyses directly from DB if available, otherwise parse from raw text
+            if (dbAnalysis.metricAnalyses && Object.keys(dbAnalysis.metricAnalyses).length > 0) {
+              this.metricAnalyses = dbAnalysis.metricAnalyses;
+            } else {
+              this.parseAnalysis(dbAnalysis.aiAnalysis);
+            }
+            this.selectedVersionNumber = dbAnalysis.version;
+            this.isLoading = false;
+            this.isReloading = false;
+          } else {
+            this.metricComments = {};
+            // 2. Fall back to cached localStorage analysis if not saved on database yet
+            const cachedAnalysis = localStorage.getItem('cmmi5_ai_analysis_' + this.selectedIteration);
+            if (cachedAnalysis) {
+              this.aiAnalysis = cachedAnalysis;
+              this.parseAnalysis(cachedAnalysis);
+            } else {
+              this.aiAnalysis = '';
+              this.metricAnalyses = {};
+            }
+            this.selectedVersionNumber = null;
+            this.isLoading = false;
+            this.isReloading = false;
+          }
+        });
       },
       error: () => {
         this.isLoading = false;
@@ -2990,7 +3671,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     let bugsProd = 0;
 
     filteredList.forEach((b: any) => {
-      if (b.classification === 'uat') {
+      const bugTags = (b.tags || '').toLowerCase().split(/[;,]/).map((t: string) => t.trim());
+      const hasUat = bugTags.some((t: string) => t.includes('buguat') || t.includes('bug uat') || t === 'uat');
+      
+      if (b.classification === 'uat' || hasUat) {
         b.classification = 'produccion';
       }
       if (b.classification === 'testing') bugsTesting++;
@@ -3442,13 +4126,14 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       if (taskEffort <= 0) return;
 
       const type = (task.type || '').toLowerCase();
+      const title = (task.title || '').toLowerCase();
 
-      if (type.includes('planead') || type.includes('nueva') || type.includes('desarroll') || type.includes('mejora') || type === '') {
-        effort += taskEffort;
-      } else if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('atencion') || type.includes('defecto') || type.includes('incidencia') || type.includes('registro')) {
+      if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('atencion') || type.includes('defecto') || type.includes('incidencia') || type.includes('registro') || title.includes('registro de defecto') || title.includes('registro de defectos') || title.includes('correcci')) {
         reqRework += taskEffort;
       } else if (type.includes('bug') || type.includes('error') || type.includes('defect')) {
         bugRework += taskEffort;
+      } else if (type.includes('planead') || type.includes('nueva') || type.includes('desarroll') || type.includes('mejora') || type === '') {
+        effort += taskEffort;
       } else {
         effort += taskEffort;
       }
@@ -3620,11 +4305,12 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         const effort = task.completedWork || 0;
         if (effort <= 0) return;
         const type = (task.type || '').toLowerCase();
+        const title = (task.title || '').toLowerCase();
 
         if (parentIsBug) {
           totalBugRework += effort;
         } else {
-          if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('atencion') || type.includes('defecto') || type.includes('incidencia') || type.includes('registro')) {
+          if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('atencion') || type.includes('defecto') || type.includes('incidencia') || type.includes('registro') || title.includes('registro de defecto') || title.includes('registro de defectos') || title.includes('correcci')) {
             totalReqRework += effort;
           } else if (type.includes('bug') || type.includes('error') || type.includes('defect')) {
             totalBugRework += effort;
@@ -3702,10 +4388,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
             if (parentIsBug) {
               rTotal += taskEffort;
             } else {
-              if (type.includes('planead') || type.includes('nueva') || type.includes('desarroll') || type.includes('mejora') || type === '') {
-                rEffort += taskEffort;
-              } else if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('bug') || type.includes('error') || type.includes('defect') || type.includes('atencion') || type.includes('incidencia') || type.includes('registro') || title.includes('registro de defecto') || title.includes('registro de defectos')) {
+              if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('bug') || type.includes('error') || type.includes('defect') || type.includes('atencion') || type.includes('incidencia') || type.includes('registro') || title.includes('registro de defecto') || title.includes('registro de defectos') || title.includes('correcci')) {
                 rTotal += taskEffort;
+              } else if (type.includes('planead') || type.includes('nueva') || type.includes('desarroll') || type.includes('mejora') || type === '') {
+                rEffort += taskEffort;
               } else {
                 rEffort += taskEffort;
               }
@@ -4111,9 +4797,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         const { shell } = win.require('electron');
         shell.openExternal(url);
         return;
-      } catch (e) {
-        console.error('Failed to open external link using Electron shell:', e);
-      }
+      } catch (e) {}
     }
 
     // Fallback to standard web browser open
@@ -4220,7 +4904,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     // 1. Development Rate Chart — real items from selected sprint
     const items = this.metrics.developmentRate.items;
-    const itemLabels = items.map(i => `${i.type === 'Feature' ? 'FEATURE' : 'REQ'} #${i.id}`);
+    const itemLabels = items.map(i => `${this.getPrefix(i.type)} #${i.id}`);
     const itemRates = items.map(i => parseFloat(this.getEffectiveRate(i).toFixed(2)));
     const itemColors = itemRates.map(r =>
       r <= 1.7 ? 'rgba(34, 197, 94, 0.75)' :   // green
@@ -4609,7 +5293,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     });
   }
 
-  /** Extract short sprint label: 'Mayansoft - Sprint 27' -> 'S27', 'Sprint 3' -> 'S3', unknown -> original */
+  /** Extract short sprint label: 'Team - Sprint 27' -> 'S27', 'Sprint 3' -> 'S3', unknown -> original */
   shortSprintLabel(name: string): string {
     const match = name.match(/(\d+)\s*$/);
     return match ? `S${match[1]}` : name;
@@ -4646,35 +5330,289 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     if (!this.metrics) return;
     this.isAnalyzing = true;
     this.aiAnalysis = '';
-    this.metricAnalyses = {};
-    this.aiService.analyzeMetrics(this.metrics).subscribe({
-      next: (res) => {
-        // Detect any error string returned from the service
+
+    const sequentialKeys = [
+      'cumplimiento',
+      'tasa de desarrollo',
+      'tasa de desviación',
+      'retrabajo',
+      'densidad de defectos',
+      'eed',
+      'escaped',
+      'testExecution',
+      'satisfactoryTests'
+    ];
+
+    // Activar inmediatamente los skeleton screens desde el milisegundo 0 al hacer clic
+    sequentialKeys.forEach(k => {
+      this.analyzingMetrics[k] = true;
+    });
+    this.analyzingMetrics = { ...this.analyzingMetrics };
+    this.cdr.detectChanges();
+
+    // 1. Identify previous sprints that are older than the current selected one
+    const currentIdx = this.iterations.findIndex(i => i.id === this.selectedIteration);
+    let historicalObservables = of([] as CMMIMetrics[]);
+
+    if (currentIdx > 0) {
+      // Sprints are date-sorted ascending. All sprints before currentIdx are historical.
+      const previousSprintIds = this.iterations
+        .slice(0, currentIdx)
+        .filter(i => !!i.startDate)
+        .map(i => i.id);
+
+      if (previousSprintIds.length > 0) {
+        historicalObservables = forkJoin(
+          previousSprintIds.map(id => this.azureService.getMetrics(id))
+        );
+      }
+    }
+
+    historicalObservables.subscribe({
+      next: async (historicalData: CMMIMetrics[]) => {
+        const cleanHistory = historicalData.filter(h => h.developmentRate && h.developmentRate.items);
+        await this.executeSequentialAnalysis(cleanHistory);
+      },
+      error: async (err: any) => {
+        console.error('Error fetching historical metrics for AI context:', err);
+        await this.executeSequentialAnalysis([]);
+      }
+    });
+  }
+
+  setMetricAnalyzing(key: string, isAnalyzing: boolean) {
+    this.analyzingMetrics = { ...this.analyzingMetrics, [key]: isAnalyzing };
+    this.cdr.detectChanges();
+  }
+
+  async executeSequentialAnalysis(cleanHistory: CMMIMetrics[]) {
+    const sequentialKeys = [
+      'cumplimiento',
+      'tasa de desarrollo',
+      'tasa de desviación',
+      'retrabajo',
+      'densidad de defectos',
+      'eed',
+      'escaped',
+      'testExecution',
+      'satisfactoryTests'
+    ];
+
+    try {
+      for (let i = 0; i < sequentialKeys.length; i++) {
+        const key = sequentialKeys[i];
+        this.setMetricAnalyzing(key, true);
+        
+        let attempts = 0;
+        const maxAttempts = 3;
+        let res = '';
+
+        while (attempts < maxAttempts) {
+          attempts++;
+          try {
+            res = await firstValueFrom(this.aiService.analyzeSingleMetric(key, this.metrics!, cleanHistory, this.metricComments));
+            const isQuotaError = res && (res.includes('Error 429') || res.includes('Cuota/Límite') || res.includes('Too Many Requests'));
+            
+            if (isQuotaError && attempts < maxAttempts) {
+              this.notificationService.warning(`Cuota de Gemini ocupada. Pausando 10s para auto-reintentar "${key}" (${attempts}/${maxAttempts})...`);
+              await new Promise(r => setTimeout(r, 10000));
+              continue;
+            }
+            break;
+          } catch (singleErr: any) {
+            if (attempts >= maxAttempts) {
+              console.error(`Error analyzing metric ${key}:`, singleErr);
+              this.notificationService.error(`Error al analizar métrica "${key}"`);
+            } else {
+              await new Promise(r => setTimeout(r, 5000));
+            }
+          }
+        }
+
         const isErrorResponse = res && (
           res.startsWith('Error al') ||
           res.startsWith('El análisis tardó') ||
           res.startsWith('Cuota de') ||
+          res.startsWith('Cuota/Límite de') ||
           res.startsWith('API Key de') ||
           res.startsWith('AI Configuration') ||
           res.startsWith('Configuración de IA')
         );
+
         if (isErrorResponse) {
-          this.isAnalyzing = false;
-          this.notificationService.error(res);
-          return;
+          this.notificationService.error(`Métrica "${key}": ${res}`);
+        } else {
+          this.parseSingleAnalysisResponse(key, res);
         }
-        this.aiAnalysis = res;
-        this.parseAnalysis(res);
-        localStorage.setItem('cmmi5_ai_analysis_' + this.selectedIteration, res);
-        this.isAnalyzing = false;
-        this.notificationService.success('Análisis de IA generado exitosamente.');
+
+        this.setMetricAnalyzing(key, false);
+
+        // Pausa de 2.0s entre métricas para cuidar la cuota RPM de Gemini/OpenAI
+        if (i < sequentialKeys.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+
+      this.aiAnalysis = this.reconstructFullAiAnalysis();
+      localStorage.setItem('cmmi5_ai_analysis_' + this.selectedIteration, this.aiAnalysis);
+      this.isAnalyzing = false;
+      this.cdr.detectChanges();
+      this.notificationService.success('Análisis secuencial por métricas completado exitosamente.');
+
+      // Save to Mongo DB Atlas
+      this.metricsApiService.saveAnalysis(
+        this.selectedIteration,
+        this.selectedSprintDisplayName || this.selectedIterationName,
+        this.metrics!,
+        this.aiAnalysis,
+        this.metricAnalyses,
+        this.metricComments
+      ).subscribe(dbRes => {
+        if (dbRes) {
+          this.loadVersionsHistory();
+          this.notificationService.success('Análisis secuencial guardado en BD Atlas');
+        }
+      });
+    } catch (err: any) {
+      this.isAnalyzing = false;
+      this.cdr.detectChanges();
+      this.notificationService.error('Error general durante el análisis secuencial por métricas.');
+    }
+  }
+
+  runSingleMetricAI(metricKey: string) {
+    if (!this.metrics) return;
+    this.setMetricAnalyzing(metricKey, true);
+
+    const currentIdx = this.iterations.findIndex(i => i.id === this.selectedIteration);
+    let historicalObservables = of([] as CMMIMetrics[]);
+
+    if (currentIdx > 0) {
+      const previousSprintIds = this.iterations
+        .slice(0, currentIdx)
+        .filter(i => !!i.startDate)
+        .map(i => i.id);
+
+      if (previousSprintIds.length > 0) {
+        historicalObservables = forkJoin(
+          previousSprintIds.map(id => this.azureService.getMetrics(id))
+        );
+      }
+    }
+
+    historicalObservables.subscribe({
+      next: (historicalData: CMMIMetrics[]) => {
+        const cleanHistory = historicalData.filter(h => h.developmentRate && h.developmentRate.items);
+        this.aiService.analyzeSingleMetric(metricKey, this.metrics!, cleanHistory, this.metricComments).subscribe({
+          next: (res) => {
+            this.setMetricAnalyzing(metricKey, false);
+            const isErrorResponse = res && (
+              res.startsWith('Error al') ||
+              res.startsWith('El análisis tardó') ||
+              res.startsWith('Cuota de') ||
+              res.startsWith('API Key de') ||
+              res.startsWith('AI Configuration') ||
+              res.startsWith('Configuración de IA')
+            );
+            if (isErrorResponse) {
+              this.notificationService.error(res);
+              return;
+            }
+            this.parseSingleAnalysisResponse(metricKey, res);
+            this.aiAnalysis = this.reconstructFullAiAnalysis();
+            localStorage.setItem('cmmi5_ai_analysis_' + this.selectedIteration, this.aiAnalysis);
+            this.cdr.detectChanges();
+            this.notificationService.success('Métrica analizada individualmente con éxito.');
+
+            // Save updated analysis set to Atlas DB
+            this.metricsApiService.saveAnalysis(
+              this.selectedIteration,
+              this.selectedSprintDisplayName || this.selectedIterationName,
+              this.metrics!,
+              this.aiAnalysis,
+              this.metricAnalyses,
+              this.metricComments
+            ).subscribe(dbRes => {
+              if (dbRes) {
+                this.loadVersionsHistory();
+              }
+            });
+          },
+          error: (err: any) => {
+            this.setMetricAnalyzing(metricKey, false);
+            this.notificationService.error('Error al analizar la métrica solicitada.');
+          }
+        });
       },
-      error: (err) => {
-        this.isAnalyzing = false;
-        const detail = err && (err.message || err.error?.message || err.statusText) ? `: ${err.message || err.error?.message || err.statusText}` : '';
-        this.notificationService.error('Error al generar el análisis de IA. Revisa tu API Key y modelo' + detail);
+      error: () => {
+        this.aiService.analyzeSingleMetric(metricKey, this.metrics!, [], this.metricComments).subscribe({
+          next: (res) => {
+            this.setMetricAnalyzing(metricKey, false);
+            this.parseSingleAnalysisResponse(metricKey, res);
+            this.aiAnalysis = this.reconstructFullAiAnalysis();
+            localStorage.setItem('cmmi5_ai_analysis_' + this.selectedIteration, this.aiAnalysis);
+            this.cdr.detectChanges();
+            this.notificationService.success('Métrica analizada individualmente con éxito.');
+          },
+          error: () => {
+            this.setMetricAnalyzing(metricKey, false);
+            this.notificationService.error('Error al analizar la métrica solicitada.');
+          }
+        });
       }
     });
+  }
+
+  parseSingleAnalysisResponse(metricKey: string, text: string) {
+    if (!text) return;
+    let cleanText = text;
+    if (text.includes('[METRICA_INICIO:') && text.includes('[METRICA_FIN]')) {
+      const parts = text.split('[METRICA_FIN]')[0].split(']');
+      if (parts.length > 1) {
+        cleanText = parts.slice(1).join(']').trim();
+      }
+    }
+    
+    if (metricKey === 'cumplimiento') {
+      const analysisHeaderMatch = cleanText.match(/-\s*Análisis de resultados:?([\s\S]*?)(?=-\s*Acciones correctivas:?|-\s*Análisis acumulado|$)/i);
+      if (analysisHeaderMatch && analysisHeaderMatch[1]) {
+        cleanText = analysisHeaderMatch[1].trim();
+      }
+    }
+
+    this.metricAnalyses[metricKey] = cleanText;
+
+    if (metricKey === 'tasa de desarrollo') this.metricAnalyses['tasaDev'] = cleanText;
+    if (metricKey === 'tasa de desviación') this.metricAnalyses['desviacion'] = cleanText;
+    if (metricKey === 'retrabajo') this.metricAnalyses['tasa de retrabajo'] = cleanText;
+    if (metricKey === 'densidad de defectos') this.metricAnalyses['densidad'] = cleanText;
+    if (metricKey === 'eed') this.metricAnalyses['eficiencia de eliminación de defectos'] = cleanText;
+    if (metricKey === 'escaped') this.metricAnalyses['bugs escapados'] = cleanText;
+    if (metricKey === 'testExecution') this.metricAnalyses['ejecución de pruebas'] = cleanText;
+    if (metricKey === 'satisfactoryTests') this.metricAnalyses['pruebas satisfactorias'] = cleanText;
+  }
+
+  reconstructFullAiAnalysis(): string {
+    const order = [
+      { key: 'cumplimiento', name: 'Cumplimiento y Línea de Tiempo del Sprint' },
+      { key: 'tasa de desarrollo', name: '1. Tasa de Desarrollo' },
+      { key: 'tasa de desviación', name: '2. Tasa de Desviación de Esfuerzo' },
+      { key: 'retrabajo', name: '3. Tasa de Retrabajo' },
+      { key: 'densidad de defectos', name: '4. Densidad de Defectos' },
+      { key: 'eed', name: '5. Eficiencia en la Eliminación de Defectos (EED)' },
+      { key: 'escaped', name: '6. Porcentaje de Bugs Escapados' },
+      { key: 'testExecution', name: '7. Porcentaje de Ejecución de Pruebas (Run Rate)' },
+      { key: 'satisfactoryTests', name: '8. Porcentaje de Pruebas Satisfactorias (Pass Rate)' }
+    ];
+
+    let full = '';
+    order.forEach(item => {
+      const content = this.metricAnalyses[item.key];
+      if (content) {
+        full += `[METRICA_INICIO: ${item.name}]\n${content}\n[METRICA_FIN]\n\n`;
+      }
+    });
+    return full.trim();
   }
 
   parseAnalysis(text: string) {
@@ -4733,22 +5671,27 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   formatAnalysisText(text: string, isMetric32: boolean = false): string {
     if (!text) return '';
-    let formatted = text
+    let cleaned = text
+      .replace(/\/UP/gi, '') // Remove any raw '/UP' or '/up' tags generated by AI or system
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Convert **bold** to <strong>bold</strong>
+      .replace(/\*\*/g, '') // Remove any remaining stray ** asterisks
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-      
+      .replace(/>/g, '&gt;')
+      .replace(/&lt;strong&gt;/g, '<strong>')
+      .replace(/&lt;\/strong&gt;/g, '</strong>');
+
     if (isMetric32) {
       // Find the line/bullet containing "Resultado del periodo" and strip any negative sign before numbers
-      const lines = formatted.split('\n');
+      const lines = cleaned.split('\n');
       for (let i = 0; i < lines.length; i++) {
         if (lines[i].toLowerCase().includes('resultado del periodo')) {
           lines[i] = lines[i].replace(/-(\d+(\.\d+)?%?)/g, '$1');
         }
       }
-      formatted = lines.join('\n');
+      cleaned = lines.join('\n');
     }
-      
+
     const headers = [
       'Meta establecida para el periodo',
       'Resultado del periodo',
@@ -4758,13 +5701,13 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       'Meta acumulada',
       'Resultado acumulado'
     ];
-    
+
     headers.forEach(h => {
       const regex = new RegExp(`(-?\\s*|o\\s*)(${h})(:?)`, 'gi');
-      formatted = formatted.replace(regex, '$1<strong>$2</strong>$3');
+      cleaned = cleaned.replace(regex, '$1<strong>$2</strong>$3');
     });
-    
-    return formatted.replace(/\n/g, '<br>');
+
+    return cleaned.replace(/\n/g, '<br>');
   }
 
   getTestExecutionAnalysis(): string {
@@ -4788,9 +5731,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       setTimeout(() => {
         this.copiedKeys[key] = false;
       }, 2000);
-    }).catch(err => {
-      console.error('Error al copiar el texto: ', err);
-    });
+    }).catch(() => {});
   }
 
   reloadSprintData() {
@@ -4798,7 +5739,55 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     localStorage.removeItem('cmmi5_ai_analysis_' + this.selectedIteration);
     this.aiAnalysis = '';
     this.metricAnalyses = {};
+    this.selectedVersionNumber = null;
     this.loadData();
+  }
+
+  loadVersionsHistory() {
+    if (!this.selectedIteration) return;
+    this.isLoadingVersions = true;
+    this.metricsApiService.getVersionsList(this.selectedIteration).subscribe(list => {
+      this.analysisVersions = list;
+      this.isLoadingVersions = false;
+    });
+  }
+
+  onVersionChange() {
+    if (!this.selectedIteration || !this.selectedVersionNumber) return;
+    this.isReloading = true;
+    this.metricsApiService.getSpecificVersion(this.selectedIteration, this.selectedVersionNumber).subscribe(dbRes => {
+      if (dbRes) {
+        this.aiAnalysis = dbRes.aiAnalysis;
+        if (dbRes.metricAnalyses && Object.keys(dbRes.metricAnalyses).length > 0) {
+          this.metricAnalyses = dbRes.metricAnalyses;
+        } else {
+          this.parseAnalysis(dbRes.aiAnalysis);
+        }
+        localStorage.setItem('cmmi5_ai_analysis_' + this.selectedIteration, dbRes.aiAnalysis);
+        this.notificationService.success(`Versión v${dbRes.version} cargada del historial.`);
+      }
+      this.isReloading = false;
+    });
+  }
+
+  restoreSelectedVersion(versionId: string) {
+    if (!versionId) return;
+    this.isReloading = true;
+    this.metricsApiService.restoreVersion(versionId).subscribe(dbRes => {
+      if (dbRes) {
+        this.aiAnalysis = dbRes.aiAnalysis;
+        if (dbRes.metricAnalyses && Object.keys(dbRes.metricAnalyses).length > 0) {
+          this.metricAnalyses = dbRes.metricAnalyses;
+        } else {
+          this.parseAnalysis(dbRes.aiAnalysis);
+        }
+        this.selectedVersionNumber = dbRes.version;
+        localStorage.setItem('cmmi5_ai_analysis_' + this.selectedIteration, dbRes.aiAnalysis);
+        this.loadVersionsHistory();
+        this.notificationService.success(`Versión v${dbRes.version} restablecida como activa.`);
+      }
+      this.isReloading = false;
+    });
   }
 
   updateTestExecChart() {
@@ -4978,7 +5967,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
       await this.pdfService.exportToPdf('professional-report', `BFYPH047_Metricas_CMMI5_${this.selectedIterationName}`);
     } catch (error) {
-      console.error('PDF Export failed', error);
       this.notificationService.error('Error al generar el PDF profesional.');
     } finally {
       this.isExporting = false;
@@ -5009,6 +5997,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         if (inputElement) inputElement.focus();
       }, 200);
     }
+  }
+
+  getPrefix(type: string): string {
+    return this.configService.getWorkItemPrefix(type || '');
   }
 
   sendChatMessage() {

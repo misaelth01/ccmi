@@ -77,10 +77,18 @@ export class AzureDevOpsService {
   private iterationPathMap = new Map<string, string>();
   private iterationDetailsMap = new Map<string, any>();
 
+  /** Configured work item prefix (e.g. REQ, FEATURE), escaped for use inside a RegExp */
+  private getTitlePrefixPattern(workItemType: string): string {
+    return this.configService.getWorkItemPrefix(workItemType || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   private flattenNodes(node: any, parentPath: string = ''): any[] {
-    // ADO path from classificationnodes already includes project name, e.g:
-    // \Bepensa - DSD Bebidas - OpeCD 2.0\Iteration\Sprint 36
-    const nodePath = node.path || (parentPath ? `${parentPath}\\${node.name}` : node.name);
+    // ADO path from classificationnodes includes a leading backslash and the \Area or \Iteration
+    // structure segment, e.g. \MyProject\Iteration\Sprint 36. Normalize to the format used by
+    // System.IterationPath / System.AreaPath and WIQL: MyProject\Sprint 36 (root node: MyProject).
+    const nodePath = (node.path || (parentPath ? `${parentPath}\\${node.name}` : node.name))
+      .replace(/^\\/, '')
+      .replace(/^([^\\]+)\\(?:Area|Iteration)(?=\\|$)/i, '$1');
     const attrs = node.attributes || {};
     const entry = { id: node.identifier, name: node.name, path: nodePath, startDate: attrs.startDate || '', finishDate: attrs.finishDate || '' };
     this.iterationPathMap.set(node.identifier, nodePath);
@@ -247,11 +255,7 @@ export class AzureDevOpsService {
     }
 
     return forkJoin(batches).pipe(
-      map(results => {
-        const finalIds = Array.from(new Set(results.flat()));
-        console.warn('[CMMI5 Debug] getRelatedBugIds final results:', finalIds);
-        return finalIds;
-      })
+      map(results => Array.from(new Set(results.flat())))
     );
   }
 
@@ -366,12 +370,6 @@ export class AzureDevOpsService {
   }
 
   private processWorkItemsFlat(items: any[], iterationInfo?: any, absoluteIterationPath?: string, coreIds?: Set<number>): CMMIMetrics {
-    console.warn('[DEBUG] 47645 exists in items?', items.some(i => i.id == 47645));
-    const b47645 = items.find(i => i.id == 47645);
-    if (b47645) {
-      console.warn('[DEBUG] 47645 fields:', b47645.fields['System.WorkItemType'], b47645.relations);
-    }
-
     let iterationName = iterationInfo?.name || '';
     let startDate = iterationInfo?.attributes?.startDate || '';
     let endDate = iterationInfo?.attributes?.finishDate || '';
@@ -447,9 +445,9 @@ export class AzureDevOpsService {
     
     parents.forEach(p => {
       const parentId = parseInt(p.id.toString(), 10);
-      const parentType = p.fields['System.WorkItemType'] === 'Feature' ? 'FEATURE' : 'REQ';
-      const titlePattern = new RegExp(`${parentType}\\s*${parentId}\\s*:`, 'i');
-      
+      const parentType = this.getTitlePrefixPattern(p.fields['System.WorkItemType']);
+      const titlePattern = new RegExp(`${parentType}\\s*${parentId}\\b\\s*:?`, 'i');
+
       tasks.forEach(t => {
         const title: string = t.fields['System.Title'] || '';
         if (titlePattern.test(title) || t.fields['System.Parent'] === parentId) {
@@ -536,8 +534,8 @@ export class AzureDevOpsService {
 
     const devItemsRaw = parents.map(p => {
       const parentId = parseInt(p.id.toString(), 10);
-      const parentType = p.fields['System.WorkItemType'] === 'Feature' ? 'FEATURE' : 'REQ';
-      const titlePattern = new RegExp(`${parentType}\\s*${parentId}\\s*:`, 'i');
+      const parentType = this.getTitlePrefixPattern(p.fields['System.WorkItemType']);
+      const titlePattern = new RegExp(`${parentType}\\s*${parentId}\\b\\s*:?`, 'i');
 
       const matchingTasks = tasks.filter(t => {
         const title: string = t.fields['System.Title'] || '';
@@ -726,7 +724,7 @@ export class AzureDevOpsService {
       const title = (task.fields['System.Title'] || '').toLowerCase();
       const effort = (task.fields['Microsoft.VSTS.Scheduling.CompletedWork'] || 0);
 
-      if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('atencion') || type.includes('defecto') || type.includes('incidencia') || title.includes('registro de defecto') || title.includes('registro de defectos')) {
+      if (type.includes('correctiv') || type.includes('retrabajo') || type.includes('fix') || type.includes('ajuste') || type.includes('rework') || type.includes('atencion') || type.includes('defecto') || type.includes('incidencia') || title.includes('registro de defecto') || title.includes('registro de defectos') || title.includes('correcci')) {
         totalReqRework += effort;
       } else if (type.includes('bug') || type.includes('error')) {
         totalBugRework += effort;
@@ -980,7 +978,7 @@ export class AzureDevOpsService {
 
     const kpiSprintItems = items.filter(i => {
       const type = i.fields['System.WorkItemType'];
-      return ['User Story', 'Requirement', 'Product Backlog Item', 'Requisito', 'Bug', 'Defecto'].includes(type);
+      return ['User Story', 'Requirement', 'Product Backlog Item', 'Requisito', 'Bug', 'Defecto', 'Task', 'Tarea', 'Feature'].includes(type);
     }).map(i => {
       const assignedTo = i.fields['System.AssignedTo'];
       const isw = assignedTo ? (typeof assignedTo === 'object' ? assignedTo.displayName : assignedTo) : 'Sin asignar';
@@ -991,6 +989,7 @@ export class AzureDevOpsService {
         type: i.fields['System.WorkItemType'],
         title: i.fields['System.Title'] || '',
         assignedTo: isw,
+        isw: isw,
         project: i.fields['System.AreaPath'] || 'General',
         size: size,
         status: i.fields['System.State'],
@@ -1004,6 +1003,7 @@ export class AzureDevOpsService {
       iterationName,
       startDate,
       endDate,
+      allWorkItems: kpiSprintItems,
       developmentRate: {
         rate: devRate,
         effort: totalEffortGlobal,
@@ -1074,7 +1074,6 @@ export class AzureDevOpsService {
     
     // WIQL query to fetch all stories, requirements, pbis, bugs, features resolved or closed under the area path
     const wiqlQuery = `SELECT [System.Id] FROM WorkItems WHERE [System.AreaPath] UNDER '${escapedArea}' AND [System.WorkItemType] IN ('User Story', 'Requirement', 'Product Backlog Item', 'Requisito', 'Bug', 'Defecto', 'Feature') AND ([Microsoft.VSTS.Common.ClosedDate] >= '${startDateStr}' AND [Microsoft.VSTS.Common.ClosedDate] <= '${endDateStr}' OR [System.ChangedDate] >= '${startDateStr}' AND [System.ChangedDate] <= '${endDateStr}')`;
-    console.log('WIQL KPIs (Sizes):', wiqlQuery);
 
     return this.http.post<any>(
       `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/_apis/wit/wiql?api-version=7.0`,
@@ -1120,7 +1119,6 @@ export class AzureDevOpsService {
     
     // WIQL query to fetch all tasks resolved, closed or changed under the area path in that month range
     const wiqlQuery = `SELECT [System.Id] FROM WorkItems WHERE [System.AreaPath] UNDER '${escapedArea}' AND [System.WorkItemType] IN ('Task', 'Tarea') AND ([Microsoft.VSTS.Common.ClosedDate] >= '${startDateStr}' AND [Microsoft.VSTS.Common.ClosedDate] <= '${endDateStr}' OR [System.ChangedDate] >= '${startDateStr}' AND [System.ChangedDate] <= '${endDateStr}')`;
-    console.log('WIQL Tasks (Hours):', wiqlQuery);
 
     return this.http.post<any>(
       `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/_apis/wit/wiql?api-version=7.0`,
@@ -1240,7 +1238,6 @@ export class AzureDevOpsService {
             return false;
           });
         }
-        console.log(`ADO TestPlans: ${plans.length} plan(s) encontrados`, plans.map((p: any) => ({ id: p.id, name: p.name })));
         return plans;
       })
     );
@@ -1392,8 +1389,6 @@ export class AzureDevOpsService {
                       testerName = testerName.split('<')[0].trim();
                     }
 
-                    console.warn(`[DEBUG TEST] Point #${pt.id} - TestCase: "${pt.testCaseTitle || pt.testCase?.name}" - Outcome: ${pt.outcome} - LastUpdated: "${lastUpdated}" (${lastUpdatedTime}) - PlanWindow: [${planStartStr} (${planStartUTC}) - ${planEndStr} (${planEndUTC})] - Evaluated onTime: ${onTime}`);
-
                     // Include ALL test points from the sprint's plan (the plan membership IS the sprint filter)
                     allPoints.push({
                       planId: plan.id,
@@ -1478,8 +1473,6 @@ export class AzureDevOpsService {
                   rate: m38Rate,
                   status: m38Status as 'green' | 'yellow' | 'red'
                 };
-
-                console.log('ADO TestExecution resultado:', { totalTestPoints, executed, rate: rate.toFixed(2) + '%', status });
 
                 return metrics;
               })
@@ -1730,5 +1723,112 @@ export class AzureDevOpsService {
       bugsList,
       rows
     };
+  }
+
+  /**
+   * Ejecuta una consulta WIQL personalizada contra Azure DevOps API
+   * y devuelve la lista de Work Items con sus campos detallados.
+   */
+  executeCustomWiqlQuery(wiqlQuery: string): Observable<any[]> {
+    const config = this.configService.getConfig();
+    if (!config || !config.azure.organization) return of([]);
+    const headers = this.getHeaders();
+
+    return this.http.post<any>(
+      `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/_apis/wit/wiql?api-version=7.0`,
+      { query: wiqlQuery },
+      { headers }
+    ).pipe(
+      switchMap(res => {
+        const ids: number[] = (res.workItems || []).map((wi: any) => wi.id);
+        if (ids.length === 0) return of([]);
+
+        const fields = [
+          'System.Id', 'System.WorkItemType', 'System.Title', 'System.State',
+          'System.AssignedTo', 'System.AreaPath', 'System.IterationPath',
+          'Microsoft.VSTS.Scheduling.CompletedWork', 'Microsoft.VSTS.Scheduling.OriginalEstimate',
+          'Microsoft.VSTS.Scheduling.RemainingWork', 'Microsoft.VSTS.Scheduling.Size',
+          'Microsoft.VSTS.Scheduling.StoryPoints', 'System.CreatedDate', 'Microsoft.VSTS.Common.ClosedDate',
+          'System.ChangedDate', 'System.Tags'
+        ].join(',');
+
+        return this.getWorkItemDetails(ids, fields);
+      }),
+      catchError(err => {
+        const msg = err.error?.message || err.message || 'Error al consultar WIQL en Azure DevOps';
+        throw new Error(msg);
+      })
+    );
+  }
+
+  /**
+   * Guarda una nueva consulta WIQL en Azure DevOps (Shared Queries o My Queries)
+   */
+  saveQueryToAzureDevOps(name: string, wiqlQuery: string, folderPath: string = 'My Queries'): Observable<any> {
+    const config = this.configService.getConfig();
+    if (!config || !config.azure.organization) return of(null);
+    const headers = this.getHeaders();
+
+    const body = {
+      name,
+      wiql: wiqlQuery
+    };
+
+    return this.http.post<any>(
+      `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/_apis/wit/queries/${encodeURIComponent(folderPath)}?api-version=7.0`,
+      body,
+      { headers }
+    );
+  }
+
+  /**
+   * Obtiene exclusivamente las consultas guardadas del usuario en 'My Queries' (Mis Consultas)
+   */
+  getSavedQueriesFromAzureDevOps(): Observable<any[]> {
+    const config = this.configService.getConfig();
+    if (!config || !config.azure.organization) return of([]);
+    const headers = this.getHeaders();
+
+    return this.http.get<any>(
+      `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/_apis/wit/queries/My Queries?$depth=2&$expand=all&api-version=7.0`,
+      { headers }
+    ).pipe(
+      switchMap(res => {
+        const queryItems: any[] = [];
+        const extractQueries = (item: any) => {
+          if (item.isFolder === false || item.wiql) {
+            queryItems.push(item);
+          }
+          if (item.children) {
+            item.children.forEach((c: any) => extractQueries(c));
+          }
+        };
+
+        if (res.children) {
+          res.children.forEach((c: any) => extractQueries(c));
+        } else if (res.isFolder === false || res.wiql) {
+          queryItems.push(res);
+        }
+
+        if (queryItems.length === 0) return of([]);
+
+        // Fetch details for individual queries that don't have wiql property inline
+        const details$ = queryItems.map(q => {
+          if (q.wiql) return of({ id: q.id, name: q.name, path: q.path, wiql: q.wiql });
+          return this.http.get<any>(
+            `https://dev.azure.com/${encodeURIComponent(config.azure.organization)}/${encodeURIComponent(config.azure.project)}/_apis/wit/queries/${q.id}?api-version=7.0`,
+            { headers }
+          ).pipe(
+            map(detail => ({ id: detail.id, name: detail.name, path: detail.path, wiql: detail.wiql })),
+            catchError(() => of(null))
+          );
+        });
+
+        return forkJoin(details$).pipe(
+          map(list => list.filter(item => item && item.wiql))
+        );
+      }),
+      catchError(() => of([]))
+    );
   }
 }

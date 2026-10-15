@@ -40,3 +40,15 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Angular environments (exclude from git to prevent URL leak)
+/src/environments/
+
+
+# Code signing certificates (never commit)
+*.pfx
+*.p12
+
+# Graphify tool output
+graphify-out/
+.graphifyignore

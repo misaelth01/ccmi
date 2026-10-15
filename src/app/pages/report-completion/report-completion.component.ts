@@ -80,8 +80,8 @@ import { FormsModule } from '@angular/forms';
                       <td class="px-4 py-3 border-r border-slate-100 dark:border-slate-800 w-24">
                         <span class="inline-flex items-center justify-center w-full px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider"
                           [ngClass]="{
-                            'bg-purple-100 text-purple-700': item.type==='FEATURE', 
-                            'bg-blue-100 text-blue-700': item.type==='REQ',
+                            'bg-purple-100 text-purple-700': item.isFeature, 
+                            'bg-blue-100 text-blue-700': !item.isFeature,
                             'bg-rose-100 text-rose-700': item.type==='Bug'
                           }">
                           {{ item.type }}
@@ -335,7 +335,8 @@ export class ReportCompletionComponent implements OnInit {
       const itemActual = devTasks.reduce((s, t) => s + (t.completedWork || 0), 0);
 
       items.push({
-        type: i.type === 'Feature' ? 'FEATURE' : 'REQ',
+        type: this.configService.getWorkItemPrefix(i.type),
+        isFeature: i.type === 'Feature',
         id: i.id,
         planned: itemPlanned,
         actual: itemActual,
@@ -346,9 +347,9 @@ export class ReportCompletionComponent implements OnInit {
     });
 
     items.sort((a, b) => {
-      // Primero ordenar por tipo (FEATURE antes que REQ)
-      if (a.type === 'FEATURE' && b.type !== 'FEATURE') return -1;
-      if (a.type !== 'FEATURE' && b.type === 'FEATURE') return 1;
+      // Primero ordenar por tipo (Features antes que requerimientos)
+      if (a.isFeature && !b.isFeature) return -1;
+      if (!a.isFeature && b.isFeature) return 1;
       // Si son del mismo tipo, ordenar por ID de menor a mayor
       return Number(a.id || 0) - Number(b.id || 0);
     });

@@ -1,7 +1,8 @@
-import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CMMIMetrics } from '../../models/metrics.model';
 import { AppConfig } from '../../models/config.model';
+import { ConfigService } from '../../services/config.service';
 
 @Component({
   selector: 'app-pdf-template',
@@ -21,8 +22,14 @@ export class PdfTemplateComponent implements OnChanges {
   @Input() satisfactoryTestsStats?: any;
   @Input() satisfactoryTestsPoints?: any[];
 
+  private configService = inject(ConfigService);
+
   currentDate = new Date().toLocaleDateString();
   eedTimelineData: any[] = [];
+
+  getPrefix(type: string): string {
+    return this.configService.getWorkItemPrefix(type || '');
+  }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['metrics']) {
@@ -171,9 +178,7 @@ export class PdfTemplateComponent implements OnChanges {
         const { shell } = win.require('electron');
         shell.openExternal(url);
         return;
-      } catch (e) {
-        console.error('Failed to open external link using Electron shell:', e);
-      }
+      } catch (e) {}
     }
     window.open(url, '_blank');
   }
