@@ -19,6 +19,7 @@ import {
   SprintPersonComparisonSummary
 } from '../../models/sprint-gantt-baseline.model';
 import { ModuleViewStateService } from '../../services/module-view-state.service';
+import { ConfigService } from '../../services/config.service';
 
 interface SprintDay {
   date: Date;
@@ -348,6 +349,8 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
   private baselineService = inject(SprintGanttBaselineService);
   private aiService = inject(AIService);
   private moduleViewStateService = inject(ModuleViewStateService);
+  private configService = inject(ConfigService);
+  private readonly ganttStageRules = this.configService.getGanttStageRules();
   readonly DownloadCloud = DownloadCloud;
   readonly FileSpreadsheet = FileSpreadsheet;
   readonly Sparkles = Sparkles;
@@ -874,14 +877,17 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
     this.loadingCatalogs = true;
     this.sprintGanttService.getTeams(this.selectedOrganization, this.selectedProjectId).subscribe({
       next: teams => {
-        this.teams = teams.filter(team => team.name.trim().toLowerCase() === 'mayansoft');
-        const selected = this.teams.find(team => team.id === this.selectedTeamId) || this.teams[0];
+        this.teams = teams;
+        const defaultTeam = (this.configService.getConfig()?.azure.team || '').trim().toLowerCase();
+        const selected = this.teams.find(team => team.id === this.selectedTeamId)
+          || this.teams.find(team => team.name.trim().toLowerCase() === defaultTeam)
+          || this.teams[0];
         this.selectedTeamId = selected?.id || '';
         this.loadingCatalogs = false;
         if (this.selectedTeamId) {
           this.loadSprints();
         } else {
-          this.errorMessage = 'No se encontró el team Mayansoft para este proyecto.';
+          this.errorMessage = 'No se encontraron teams para este proyecto.';
         }
         this.persistViewState();
       },
@@ -2234,58 +2240,16 @@ export class SprintGanttComponent implements OnInit, OnDestroy {
     let stage = 'other';
     let role: WorkflowRole = 'developer';
 
-    if (normalized.includes('peer review test')) {
-      stage = 'reviewer-peer-test';
-      role = 'reviewer';
-    } else if (
-      normalized.includes('registrar sprint en azure') ||
-      normalized.includes('elaborar presentacion de sprint planning') ||
-      normalized.includes('elaborar presentacion del sprint planning') ||
-      normalized.includes('reunion evaluacion de riesgos') ||
-      normalized.includes('reunion de evaluacion de riesgos') ||
-      normalized.includes('presentacion de work items') ||
-      normalized.includes('reunion de sprint planning')
-    ) {
-      stage = 'kickoff';
-      role = 'developer';
-    } else if (normalized.includes('daily scrum sprint')) {
-      stage = 'daily-scrum';
-      role = 'developer';
-    } else if (
-      normalized.includes('generar paquete de liberacion') ||
-      normalized.includes('enviar correo de finalizacion de dev sprint') ||
-      normalized.includes('enviar correo de finalizacion de testing sprint') ||
-      normalized.includes('validar informacion registrada del sprint')
-    ) {
-      stage = 'closing';
-      role = 'developer';
-    } else if (normalized.includes('diseno de pruebas') || normalized.includes('diseño de pruebas')) {
-      stage = 'design-tests';
-      role = 'developer';
-    } else if (normalized.includes('peer review de especificacion') || normalized.includes('peer review de especificación')) {
-      stage = 'dev-spec-peer';
-      role = 'developer';
-    } else if (normalized.includes('analisis') || normalized.includes('análisis')) {
-      stage = 'dev-analysis';
-      role = 'developer';
-    } else if (normalized.includes('elaboracion de codigo') || normalized.includes('elaboración de código')) {
-      stage = 'dev-coding';
-      role = 'developer';
-    } else if (normalized.includes('peer review')) {
-      stage = 'reviewer-peer';
-      role = 'reviewer';
-    } else if (/(\breview\b)/.test(normalized)) {
-      stage = 'dev-review';
-      role = 'developer';
-    } else if (normalized.includes('pruebas funcionales') && normalized.includes('isw')) {
-      stage = 'post-review-isw';
-      role = 'developer';
-    } else if (normalized.includes('ejecucion de pruebas') || normalized.includes('ejecución de pruebas')) {
-      stage = 'qa-execution';
-      role = 'qa';
-    } else if (normalized.includes('registro de defectos')) {
-      stage = 'qa-defects';
-      role = 'qa';
+    // Stage rules are configurable (Config > Etapas del Gantt); first matching rule wins
+    const matchesKeyword = (keyword: string) => keyword
+      .split('+')
+      .map(part => this.normalizeTitle(part))
+      .filter(Boolean)
+      .every(part => new RegExp(`\\b${part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(normalized));
+    const rule = this.ganttStageRules.find(r => r.keywords.some(matchesKeyword));
+    if (rule) {
+      stage = rule.stage;
+      role = rule.role;
     }
 
     return {

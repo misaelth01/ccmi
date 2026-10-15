@@ -2,8 +2,8 @@ import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ConfigService } from '../../services/config.service';
-import { AppConfig, DevTaskTemplateItem, TimedTaskTemplateItem } from '../../models/config.model';
-import { LucideAngularModule, Save, ShieldCheck, Cpu, ClipboardList, ChevronDown, ChevronUp, Tag, Database } from 'lucide-angular';
+import { AppConfig, DevTaskTemplateItem, GanttStageRule, TimedTaskTemplateItem } from '../../models/config.model';
+import { LucideAngularModule, Save, ShieldCheck, Cpu, ClipboardList, ChevronDown, ChevronUp, Tag, Database, ListChecks } from 'lucide-angular';
 
 @Component({
   selector: 'app-config',
@@ -203,6 +203,28 @@ import { LucideAngularModule, Save, ShieldCheck, Cpu, ClipboardList, ChevronDown
     </div>
   </section>
 
+  <!-- Gantt Stage Rules -->
+  <section class="glass-card space-y-4">
+    <button class="w-full flex items-center justify-between text-left" (click)="ganttRulesPanelOpen = !ganttRulesPanelOpen">
+      <div class="flex items-center gap-3 text-sky-500">
+        <lucide-icon [name]="ListChecks" size="24"></lucide-icon>
+        <div>
+          <h3 class="text-xl font-semibold text-slate-800 dark:text-white">Etapas del Gantt</h3>
+          <p class="text-slate-500 dark:text-slate-400 text-sm">Palabras clave del título de la tarea que definen su etapa. Se evalúan en orden y gana la primera que coincida. Usa "+" para exigir varias palabras (ej. pruebas funcionales+isw).</p>
+        </div>
+      </div>
+      <lucide-icon [name]="ganttRulesPanelOpen ? ChevronUp : ChevronDown" size="18" class="text-slate-400"></lucide-icon>
+    </button>
+
+    <div *ngIf="ganttRulesPanelOpen" class="space-y-3 animate-in fade-in duration-200">
+      <div *ngFor="let rule of config.ganttStageRules!" class="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-2 items-start">
+        <label class="text-sm font-medium pt-2">{{ rule.label }}</label>
+        <input [(ngModel)]="ganttKeywordsText[rule.stage]" type="text" class="glass-input w-full text-xs" placeholder="palabras clave separadas por coma">
+      </div>
+      <button class="glass-button text-xs px-3 py-1.5" (click)="resetGanttStageRules()">Restaurar valores por defecto</button>
+    </div>
+  </section>
+
   <!-- Work Item Prefixes -->
   <section class="glass-card space-y-6">
     <div class="flex items-center gap-3 text-amber-500">
@@ -305,6 +327,7 @@ export class ConfigComponent {
   readonly ChevronUp = ChevronUp;
   readonly Tag = Tag;
   readonly Database = Database;
+  readonly ListChecks = ListChecks;
 
   private configService = inject(ConfigService);
 
@@ -317,15 +340,31 @@ export class ConfigComponent {
       sharePoint: { siteUrl: '', listPath: '', releasesFolder: '', viewId: '', ...(saved?.sharePoint || {}) },
       sprintTaskTemplate: saved?.sprintTaskTemplate || this.configService.getDefaultSprintTaskTemplate(),
       workItemPrefixes: { ...this.configService.getDefaultWorkItemPrefixes(), ...(saved?.workItemPrefixes || {}) },
-      saao: { ...this.configService.getDefaultSaaoConfig(), ...(saved?.saao || {}) }
+      saao: { ...this.configService.getDefaultSaaoConfig(), ...(saved?.saao || {}) },
+      ganttStageRules: saved?.ganttStageRules?.length ? saved.ganttStageRules : this.configService.getDefaultGanttStageRules()
     };
   })();
 
   saaoCollaboratorsText = (this.config.saao?.collaborators || []).join(', ');
+  ganttRulesPanelOpen = false;
+  ganttKeywordsText = this.toKeywordsText(this.config.ganttStageRules!);
+
+  resetGanttStageRules(): void {
+    this.config.ganttStageRules = this.configService.getDefaultGanttStageRules();
+    this.ganttKeywordsText = this.toKeywordsText(this.config.ganttStageRules);
+  }
+
+  private toKeywordsText(rules: GanttStageRule[]): { [stage: string]: string } {
+    return Object.fromEntries(rules.map(rule => [rule.stage, rule.keywords.join(', ')]));
+  }
   templatePanelOpen = true;
 
   save() {
     this.config.saao!.collaborators = this.saaoCollaboratorsText.split(',').map(c => c.trim()).filter(Boolean);
+    this.config.ganttStageRules = this.config.ganttStageRules!.map(rule => ({
+      ...rule,
+      keywords: (this.ganttKeywordsText[rule.stage] || '').split(',').map(k => k.trim()).filter(Boolean)
+    }));
     this.configService.saveConfig(this.config);
     alert('Configuración guardada correctamente.');
   }

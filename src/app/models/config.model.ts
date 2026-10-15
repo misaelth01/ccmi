@@ -23,6 +23,19 @@ export interface AppConfig {
   workItemPrefixes?: WorkItemPrefixes;
   metricsApiUrl?: string; // Backend de histórico (ej. https://servidor/api/analysis). Vacío = solo local
   saao?: SaaoConfig;
+  ganttStageRules?: GanttStageRule[];
+}
+
+/**
+ * Regla para clasificar una tarea del Gantt en una etapa según su título.
+ * Se evalúan en orden; gana la primera cuyo keyword aparezca en el título.
+ * Un keyword con "+" exige que todas sus partes aparezcan (ej. "pruebas funcionales+isw").
+ */
+export interface GanttStageRule {
+  stage: string;
+  label: string;
+  role: 'developer' | 'reviewer' | 'qa';
+  keywords: string[];
 }
 
 export interface SaaoConfig {
