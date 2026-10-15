@@ -168,6 +168,41 @@ import { LucideAngularModule, Save, ShieldCheck, Cpu, ClipboardList, ChevronDown
     <input [(ngModel)]="config.metricsApiUrl" type="url" placeholder="https://tu-servidor/api/analysis" class="glass-input w-full font-mono text-xs">
   </section>
 
+  <!-- SAAO -->
+  <section class="glass-card space-y-6">
+    <div class="flex items-center gap-3 text-amber-500">
+      <lucide-icon [name]="ClipboardList" size="24"></lucide-icon>
+      <div>
+        <h3 class="text-xl font-semibold text-slate-800 dark:text-white">SAAO</h3>
+        <p class="text-slate-500 dark:text-slate-400 text-sm">Datos usados por Proceso Sprint para crear Big Rocks y Macrotareas en SAAO.</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm font-medium mb-1.5 opacity-70">URL de SAAO</label>
+        <input [(ngModel)]="config.saao!.url" type="url" placeholder="https://saao.empresa.com" class="glass-input w-full font-mono text-xs">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1.5 opacity-70">Proyecto SAAO (Big Rocks)</label>
+        <input [(ngModel)]="config.saao!.projectCode" type="text" placeholder="ej. PMD00001" class="glass-input w-full">
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1.5 opacity-70">Prefijo de Macrotareas</label>
+        <input [(ngModel)]="config.saao!.macroTitlePrefix" type="text" placeholder="ej. Mi Proyecto" class="glass-input w-full">
+        <p class="text-[11px] text-slate-400 mt-1">Resultado: {{ config.saao!.macroTitlePrefix ? config.saao!.macroTitlePrefix + '>' : '' }}Release #1&gt;Análisis y diseño</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1.5 opacity-70">Responsable de Big Rocks</label>
+        <input [(ngModel)]="config.saao!.bigRockResponsible" type="text" placeholder="usuario SAAO (si se deja vacío, se usa tu correo)" class="glass-input w-full">
+      </div>
+      <div class="md:col-span-2">
+        <label class="block text-sm font-medium mb-1.5 opacity-70">Colaboradores (separados por coma)</label>
+        <input [(ngModel)]="saaoCollaboratorsText" type="text" placeholder="ej. Ana, Luis, ISW MID 1" class="glass-input w-full">
+      </div>
+    </div>
+  </section>
+
   <!-- Work Item Prefixes -->
   <section class="glass-card space-y-6">
     <div class="flex items-center gap-3 text-amber-500">
@@ -281,12 +316,16 @@ export class ConfigComponent {
       ai: { provider: 'openai', apiKey: '', model: '', ...(saved?.ai || {}) },
       sharePoint: { siteUrl: '', listPath: '', releasesFolder: '', viewId: '', ...(saved?.sharePoint || {}) },
       sprintTaskTemplate: saved?.sprintTaskTemplate || this.configService.getDefaultSprintTaskTemplate(),
-      workItemPrefixes: { ...this.configService.getDefaultWorkItemPrefixes(), ...(saved?.workItemPrefixes || {}) }
+      workItemPrefixes: { ...this.configService.getDefaultWorkItemPrefixes(), ...(saved?.workItemPrefixes || {}) },
+      saao: { ...this.configService.getDefaultSaaoConfig(), ...(saved?.saao || {}) }
     };
   })();
+
+  saaoCollaboratorsText = (this.config.saao?.collaborators || []).join(', ');
   templatePanelOpen = true;
 
   save() {
+    this.config.saao!.collaborators = this.saaoCollaboratorsText.split(',').map(c => c.trim()).filter(Boolean);
     this.configService.saveConfig(this.config);
     alert('Configuración guardada correctamente.');
   }

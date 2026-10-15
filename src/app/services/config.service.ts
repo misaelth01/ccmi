@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { AppConfig, SprintTaskTemplate, WorkItemPrefixes } from '../models/config.model';
+import { AppConfig, SaaoConfig, SprintTaskTemplate, WorkItemPrefixes } from '../models/config.model';
 
 @Injectable({
   providedIn: 'root'
@@ -46,6 +46,22 @@ export class ConfigService {
     if (normalized === 'feature') return prefixes.feature;
     if (normalized === 'bug') return prefixes.bug;
     return prefixes.requirement;
+  }
+
+  getDefaultSaaoConfig(): SaaoConfig {
+    return {
+      url: 'https://saao.blueoceantech.com.mx',
+      projectCode: '',
+      macroTitlePrefix: '',
+      bigRockResponsible: '',
+      collaborators: []
+    };
+  }
+
+  getSaaoConfig(): SaaoConfig {
+    const saao = { ...this.getDefaultSaaoConfig(), ...this.getConfig()?.saao };
+    saao.url = (saao.url || '').trim().replace(/\/+$/, '');
+    return saao;
   }
 
   getConfig(): AppConfig | null {

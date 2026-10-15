@@ -22,6 +22,15 @@ export interface AppConfig {
   sprintTaskTemplate?: SprintTaskTemplate;
   workItemPrefixes?: WorkItemPrefixes;
   metricsApiUrl?: string; // Backend de histórico (ej. https://servidor/api/analysis). Vacío = solo local
+  saao?: SaaoConfig;
+}
+
+export interface SaaoConfig {
+  url: string;                // Base URL de SAAO (sin /MacrotareaForm)
+  projectCode: string;        // Proyecto SAAO donde viven los Big Rocks (ej. PMD00001)
+  macroTitlePrefix: string;   // Prefijo de Macrotareas (ej. "Mi Proyecto" -> "Mi Proyecto>Release #1>...")
+  bigRockResponsible: string; // Usuario SAAO responsable de los Big Rocks
+  collaborators: string[];    // Colaboradores para asignación y filtros
 }
 
 export interface WorkItemPrefixes {

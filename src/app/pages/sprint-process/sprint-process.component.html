@@ -591,7 +591,7 @@
             6. Creación de Entregables / Big Rocks en SAAO
           </h3>
           <p class="text-xs text-slate-500">
-            Paso indispensable antes de crear las Macrotareas del Sprint. Se abre y diligencia en <code class="font-mono text-amber-600 dark:text-amber-400">https://saao.blueoceantech.com.mx/EntregableForm/</code>.
+            Paso indispensable antes de crear las Macrotareas del Sprint. Se abre y diligencia en <code class="font-mono text-amber-600 dark:text-amber-400">{{ saaoConfig.url }}/EntregableForm/</code>.
           </p>
         </div>
 
@@ -608,7 +608,7 @@
         <lucide-icon [name]="AlertTriangle" size="18" class="text-amber-500 shrink-0 mt-0.5"></lucide-icon>
         <div>
           <strong class="font-black uppercase tracking-wide">Paso Previo Requerido:</strong>
-          Cada entrega o módulo del Sprint requiere existir previamente como <strong>Entregable (Big Rock)</strong> en SAAO bajo el proyecto <span class="font-bold">PMD00222</span> y asignado a <span class="font-bold">georgina.chan</span>. Al hacer clic en <em>"Crear esta Big Rock"</em>, la extensión navegará a <code>/EntregableForm/</code> y prellenará el formulario activando el switch <code>¿Es Big Rock?</code> y configurando el tiempo estimado.
+          Cada entrega o módulo del Sprint requiere existir previamente como <strong>Entregable (Big Rock)</strong> en SAAO bajo el proyecto <span class="font-bold">{{ saaoProjectLabel }}</span> y asignado a <span class="font-bold">{{ bigRockResponsible }}</span>. Al hacer clic en <em>"Crear esta Big Rock"</em>, la extensión navegará a <code>/EntregableForm/</code> y prellenará el formulario activando el switch <code>¿Es Big Rock?</code> y configurando el tiempo estimado.
         </div>
       </div>
 
@@ -618,7 +618,7 @@
           <h4 class="text-xs font-black uppercase text-slate-400 tracking-wider">
             Big Rocks Detectadas para este Sprint ({{ saaoMacroTasks.length }})
           </h4>
-          <span class="text-xs text-slate-400 font-medium">Proyecto por defecto: <strong class="text-indigo-600 dark:text-indigo-400">PMD00222</strong> | Resp: <strong class="text-indigo-600 dark:text-indigo-400">georgina.chan</strong></span>
+          <span class="text-xs text-slate-400 font-medium">Proyecto por defecto: <strong class="text-indigo-600 dark:text-indigo-400">{{ saaoProjectLabel }}</strong> | Resp: <strong class="text-indigo-600 dark:text-indigo-400">{{ bigRockResponsible }}</strong></span>
         </div>
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -626,7 +626,7 @@
             
             <div class="flex items-center justify-between">
               <span class="px-2.5 py-0.5 rounded text-[10px] font-black uppercase bg-amber-500 text-white shadow-sm">{{ macro.tag }}</span>
-              <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Responsable: <strong class="text-slate-700 dark:text-slate-200">georgina.chan</strong></span>
+              <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Responsable: <strong class="text-slate-700 dark:text-slate-200">{{ bigRockResponsible }}</strong></span>
             </div>
 
             <div class="space-y-1">
@@ -650,7 +650,7 @@
               </div>
               <div>
                 <span class="text-[10px] font-bold uppercase text-slate-400 block mb-0.5">Proyecto SAAO:</span>
-                <span class="font-bold text-indigo-600 dark:text-indigo-400">PMD00222</span>
+                <span class="font-bold text-indigo-600 dark:text-indigo-400">{{ saaoProjectLabel }}</span>
               </div>
               <div>
                 <span class="text-[10px] font-bold uppercase text-slate-400 block mb-1">Configuración Tiempo Manual:</span>
@@ -800,7 +800,7 @@
             <div class="flex items-center justify-between pb-2 border-b border-slate-800 text-[11px] text-slate-400">
               <div class="flex items-center gap-2">
                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Monitor de Eventos Mayansoft TT (SAAO)</span>
+                <span>Monitor de Eventos de la Extensión SAAO</span>
               </div>
               <span>{{ automationLogs.length }} eventos</span>
             </div>

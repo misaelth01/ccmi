@@ -310,14 +310,14 @@ export class SprintProcessComponent implements OnInit {
   // Stage 2: Individual Item Analyses & Manual Pre-Analyses (MongoDB)
   sprintAnalysisNotes: string = '';
   itemAnalysesMap: { [itemId: string]: ItemIndividualAnalysis } = {};
-  collaboratorsList: string[] = ['Marlon', 'Yair', 'ISW MID 1', 'ISW MID 2', 'Sin Reasignar'];
+  collaboratorsList: string[] = [...this.configService.getSaaoConfig().collaborators, 'Sin Reasignar'];
   manualPreAnalyses: ManualPreAnalysis[] = [];
   newPreAnalysis: ManualPreAnalysis = {
     itemId: '',
     type: 'User Story',
     title: '',
     estimatedHours: 0,
-    assignedIsw: 'Marlon',
+    assignedIsw: this.collaboratorsList[0],
     notes: '',
     createdAt: ''
   };
@@ -344,10 +344,19 @@ export class SprintProcessComponent implements OnInit {
   // Stage 6: SAAO Assistant & Excel import
   excelFileName: string = '';
   saaoMacroTasks: SaaoMacroTask[] = [];
-  filterCollaborator: string = 'marlon';
-  saaoCollaboratorList: string[] = ['marlon', 'todos'];
+  filterCollaborator: string = 'todos';
+  saaoCollaboratorList: string[] = ['todos'];
   isSplitView: boolean = true;
-  saaoUrl: string = 'https://saao.blueoceantech.com.mx/MacrotareaForm';
+  saaoConfig = this.configService.getSaaoConfig();
+  saaoUrl: string = `${this.saaoConfig.url}/MacrotareaForm`;
+
+  get saaoProjectLabel(): string {
+    return this.saaoConfig.projectCode || '(configurar en Config > SAAO)';
+  }
+
+  get bigRockResponsible(): string {
+    return this.saaoConfig.bigRockResponsible || this.userEmail.trim().toLowerCase() || '(configurar en Config > SAAO)';
+  }
 
   // SAAO Mapping Dictionary con estimaciones por defecto (hh:mm) para Big Rocks
   readonly macroTagMap: { [key: string]: { name: string; tag: string; defaultHours: number; defaultMinutes: number } } = {
@@ -364,14 +373,13 @@ export class SprintProcessComponent implements OnInit {
     this.loadSavedSelection();
     this.loadDraftSprints();
     this.loadIterations();
-    this.initDefaultSaaoDemoData();
     this.loadPreAnalyses();
     this.fetchAvailableReleases();
 
     window.addEventListener('message', (event) => {
       if (event.data && event.data.type === 'CMMI5_EXTENSION_INVALIDATED') {
         this.addLog('⚠️ La extensión fue actualizada en Chrome. Por favor presiona F5 en esta página para reconectar.', 'warn');
-        this.notificationService.error('⚠️ La extensión Mayansoft TT fue actualizada en Chrome. Por favor presiona F5 en esta página web para reconectar.');
+        this.notificationService.error('⚠️ La extensión SAAO fue actualizada en Chrome. Por favor presiona F5 en esta página web para reconectar.');
       }
     });
   }
@@ -463,7 +471,7 @@ export class SprintProcessComponent implements OnInit {
       type: 'User Story',
       title: '',
       estimatedHours: 0,
-      assignedIsw: 'Marlon',
+      assignedIsw: this.collaboratorsList[0],
       notes: '',
       createdAt: ''
     };
@@ -742,9 +750,7 @@ export class SprintProcessComponent implements OnInit {
     }
 
     // Priorizar fuertemente las tareas asignadas al correo/usuario configurado localmente (userEmail)
-    const userTokens = this.userEmail
-      ? this.userEmail.trim().toLowerCase().split(/[\._\-\s@]+/).filter(t => t.length > 2 && t !== 'com' && t !== 'mx' && t !== 'blueoceantech' && t !== 'grupoblueocean')
-      : [];
+    const userTokens = this.tokenizeIdentity(this.userEmail);
 
     const isUserMatch = (assignedTo: string) => {
       if (!assignedTo) return false;
@@ -852,7 +858,7 @@ export class SprintProcessComponent implements OnInit {
     let modified = false;
 
     this.saaoMacroTasks.forEach(macro => {
-      if (this.userEmail && (!macro.assignedTo || macro.assignedTo === 'marlon')) {
+      if (this.userEmail && !macro.assignedTo) {
         macro.assignedTo = this.userEmail.split('@')[0].toLowerCase();
       }
 
@@ -909,11 +915,11 @@ export class SprintProcessComponent implements OnInit {
     this.addLog(`🧱 [Etapa 7] Procesando Work Items de Azure DevOps para usuario "${this.userEmail || 'todos'}"...`, 'info');
 
     const categories = [
-      { key: 'BR_AnálisisDiseño', title: `Ope 20>Release #${releaseNum}>Análisis y diseño`, defaultHours: 8 },
-      { key: 'BR_Monitoreo', title: `Ope 20>Release #${releaseNum}>Monitoreo y seguimiento`, defaultHours: 6 },
-      { key: 'BR_AdmDev', title: `Ope 20>Release #${releaseNum}>Administración de desarrollo`, defaultHours: 4 },
-      { key: 'BR_Dev', title: `Ope 20>Release #${releaseNum}>Desarrollo sprint en curso`, defaultHours: 40 },
-      { key: 'BR_LIB', title: `Ope 20>Release #${releaseNum}>Liberación`, defaultHours: 4 }
+      { key: 'BR_AnálisisDiseño', title: this.buildMacroTitle(releaseNum, 'Análisis y diseño'), defaultHours: 8 },
+      { key: 'BR_Monitoreo', title: this.buildMacroTitle(releaseNum, 'Monitoreo y seguimiento'), defaultHours: 6 },
+      { key: 'BR_AdmDev', title: this.buildMacroTitle(releaseNum, 'Administración de desarrollo'), defaultHours: 4 },
+      { key: 'BR_Dev', title: this.buildMacroTitle(releaseNum, 'Desarrollo sprint en curso'), defaultHours: 40 },
+      { key: 'BR_LIB', title: this.buildMacroTitle(releaseNum, 'Liberación'), defaultHours: 4 }
     ];
 
     const macroMap = new Map<string, SaaoMacroTask>();
@@ -923,7 +929,7 @@ export class SprintProcessComponent implements OnInit {
         tag: cat.key,
         macroTitle: cat.title,
         releaseName: `Release #${releaseNum}`,
-        assignedTo: this.userEmail ? this.userEmail.trim().toLowerCase() : 'marlon',
+        assignedTo: this.userEmail ? this.userEmail.trim().toLowerCase() : '',
         startDate: this.metrics?.startDate || '',
         endDate: this.metrics?.endDate || '',
         deliverableBigRock: cat.title,
@@ -934,9 +940,7 @@ export class SprintProcessComponent implements OnInit {
       });
     });
 
-    const userTokens = this.userEmail
-      ? this.userEmail.trim().toLowerCase().split(/[\._\-\s@]+/).filter(t => t.length > 2 && t !== 'com' && t !== 'mx' && t !== 'blueoceantech')
-      : [];
+    const userTokens = this.tokenizeIdentity(this.userEmail);
 
     let totalMatchedTasks = 0;
 
@@ -1074,7 +1078,7 @@ export class SprintProcessComponent implements OnInit {
     }
 
     const filter = this.filterCollaborator.toLowerCase().trim();
-    const userTokens = filter.split(/[\._\-\s@]+/).filter(t => t.length > 2 && t !== 'com' && t !== 'mx' && t !== 'blueoceantech' && t !== 'grupoblueocean');
+    const userTokens = this.tokenizeIdentity(filter);
 
     return this.saaoMacroTasks.filter(m => {
       if (!m.tasks || m.tasks.length === 0) return false;
@@ -1169,11 +1173,11 @@ export class SprintProcessComponent implements OnInit {
     const releaseNum = releaseMatch ? releaseMatch[1] : '15';
 
     const categories = [
-      { key: 'BR_AnálisisDiseño', title: `Ope 20>Release #${releaseNum}>Análisis y diseño`, defaultHours: 8 },
-      { key: 'BR_Monitoreo', title: `Ope 20>Release #${releaseNum}>Monitoreo y seguimiento`, defaultHours: 6 },
-      { key: 'BR_AdmDev', title: `Ope 20>Release #${releaseNum}>Administración de desarrollo`, defaultHours: 4 },
-      { key: 'BR_Dev', title: `Ope 20>Release #${releaseNum}>Desarrollo sprint en curso`, defaultHours: 40 },
-      { key: 'BR_LIB', title: `Ope 20>Release #${releaseNum}>Liberación`, defaultHours: 4 }
+      { key: 'BR_AnálisisDiseño', title: this.buildMacroTitle(releaseNum, 'Análisis y diseño'), defaultHours: 8 },
+      { key: 'BR_Monitoreo', title: this.buildMacroTitle(releaseNum, 'Monitoreo y seguimiento'), defaultHours: 6 },
+      { key: 'BR_AdmDev', title: this.buildMacroTitle(releaseNum, 'Administración de desarrollo'), defaultHours: 4 },
+      { key: 'BR_Dev', title: this.buildMacroTitle(releaseNum, 'Desarrollo sprint en curso'), defaultHours: 40 },
+      { key: 'BR_LIB', title: this.buildMacroTitle(releaseNum, 'Liberación'), defaultHours: 4 }
     ];
 
     const macroMap = new Map<string, SaaoMacroTask>();
@@ -1182,7 +1186,7 @@ export class SprintProcessComponent implements OnInit {
         tag: cat.key,
         macroTitle: cat.title,
         releaseName: `Release #${releaseNum}`,
-        assignedTo: this.userEmail ? this.userEmail.trim().toLowerCase() : 'marlon',
+        assignedTo: this.userEmail ? this.userEmail.trim().toLowerCase() : '',
         startDate: this.metrics?.startDate || '',
         endDate: this.metrics?.endDate || '',
         deliverableBigRock: cat.title,
@@ -1193,9 +1197,7 @@ export class SprintProcessComponent implements OnInit {
       });
     });
 
-    const userTokens = this.userEmail
-      ? this.userEmail.trim().toLowerCase().split(/[\._\-\s@]+/).filter(t => t.length > 2 && t !== 'com' && t !== 'mx' && t !== 'blueoceantech' && t !== 'grupoblueocean')
-      : [];
+    const userTokens = this.tokenizeIdentity(this.userEmail);
 
     const azureItems = this.metrics?.developmentRate?.items || [];
     let formattedCount = 0;
@@ -1204,8 +1206,7 @@ export class SprintProcessComponent implements OnInit {
     const metadataBlacklist = [
       'fecha inicio', 'fecha fin', 'días de sprint', 'dias de sprint',
       'cantidad de historias', 'tasa de esfuerzo', 'hrs por día', 'hrs por dia',
-      'team', 'marlon garcía', 'georgina concepción', 'yair meza', 'luis fernando',
-      'marlon.garcia@', 'georgina.chan@', 'yair.magana@', 'fernando.cab@',
+      'team', ...this.collaboratorsList.map(c => c.toLowerCase()),
       'resumen', 'métricas', 'metricas', 'porcentaje', 'totales'
     ];
 
@@ -1759,7 +1760,7 @@ export class SprintProcessComponent implements OnInit {
       const releaseNum = relMatch ? relMatch[1] : '15';
 
       const macroInfo = this.macroTagMap[matchedTagKey];
-      const macroTitle = `Ope 20>Release #${releaseNum}>${macroInfo.name}`;
+      const macroTitle = this.buildMacroTitle(releaseNum, macroInfo.name);
       const uniqueKey = `${assignedTo}_${matchedTagKey}`;
 
       if (!macroMap.has(uniqueKey)) {
@@ -1767,7 +1768,7 @@ export class SprintProcessComponent implements OnInit {
           tag: matchedTagKey,
           macroTitle,
           releaseName: `Release #${releaseNum}`,
-          assignedTo: assignedTo || 'marlon',
+          assignedTo: assignedTo || '',
           startDate: this.metrics?.startDate || '',
           endDate: this.metrics?.endDate || '',
           deliverableBigRock: macroTitle,
@@ -1809,54 +1810,20 @@ export class SprintProcessComponent implements OnInit {
     }
   }
 
-  // Initialize demo data for SAAO Macrotareas if no file uploaded yet
-  initDefaultSaaoDemoData(): void {
-    const releaseNum = '15';
-    this.saaoMacroTasks = [
-      {
-        tag: 'BR_AnálisisDiseño',
-        macroTitle: `Ope 20>Release #${releaseNum}>Análisis y diseño`,
-        releaseName: `Release #${releaseNum}`,
-        assignedTo: 'marlon',
-        startDate: '2024-08-01',
-        endDate: '2024-08-14',
-        deliverableBigRock: `Ope 20>Release #${releaseNum}>Análisis y diseño`,
-        tasks: [
-          'Task 48111: Presentación de Work Items',
-          'Task 48112: Reunión evaluación de riesgos',
-          'Task 48113: Utilizar el Modelo de Rendimiento'
-        ],
-        status: 'pending'
-      },
-      {
-        tag: 'BR_Monitoreo',
-        macroTitle: `Ope 20>Release #${releaseNum}>Monitoreo y seguimiento`,
-        releaseName: `Release #${releaseNum}`,
-        assignedTo: 'marlon',
-        startDate: '2024-08-01',
-        endDate: '2024-08-14',
-        deliverableBigRock: `Ope 20>Release #${releaseNum}>Monitoreo y seguimiento`,
-        tasks: [
-          'Task 48114: Seguimiento diario de avance en Azure DevOps',
-          'Task 48115: Revisión de métricas de calidad CMMI'
-        ],
-        status: 'pending'
-      },
-      {
-        tag: 'BR_Dev',
-        macroTitle: `Ope 20>Release #${releaseNum}>Desarrollo sprint en curso`,
-        releaseName: `Release #${releaseNum}`,
-        assignedTo: 'marlon',
-        startDate: '2024-08-01',
-        endDate: '2024-08-14',
-        deliverableBigRock: `Ope 20>Release #${releaseNum}>Desarrollo sprint en curso`,
-        tasks: [
-          'Task 48116: Elaboración de código y pruebas unitarias',
-          'Task 48117: Peer Review de código'
-        ],
-        status: 'pending'
-      }
-    ];
+  /** SAAO macro task title: "<prefix>>Release #N>Name" (prefix configured in Config > SAAO) */
+  private buildMacroTitle(releaseNum: string | number, name: string): string {
+    const prefix = (this.saaoConfig.macroTitlePrefix || '').trim();
+    return `${prefix ? prefix + '>' : ''}Release #${releaseNum}>${name}`;
+  }
+
+  /** Split a user/email into matching tokens, ignoring generic and the user's own email domain parts */
+  private tokenizeIdentity(value: string): string[] {
+    const normalized = (value || '').trim().toLowerCase();
+    if (!normalized) return [];
+    const ownDomain = (this.userEmail || '').toLowerCase().split('@')[1] || '';
+    const domain = normalized.split('@')[1] || ownDomain;
+    const ignored = new Set(['com', 'mx', 'net', 'org', ...domain.split('.')]);
+    return normalized.split(/[\._\-\s@]+/).filter(t => t.length > 2 && !ignored.has(t));
   }
 
 
@@ -2226,7 +2193,7 @@ export class SprintProcessComponent implements OnInit {
     this.notificationService.info('📌 Arrastra este botón a tu barra de marcadores del navegador. Luego ve a SAAO y haz clic en el marcador para ejecutar el autollenado.');
   }
 
-  // Send Direct Message to Extension Mayansoft TT (ado-time-tracker)
+  // Send Direct Message to SAAO extension (ado-time-tracker)
   sendDirectExtensionMessage(macro?: SaaoMacroTask): void {
     const macroToUse = macro || this.saaoMacroTasks[0];
     if (!macroToUse) {
@@ -2248,8 +2215,8 @@ export class SprintProcessComponent implements OnInit {
       assignedTo: macroToUse.assignedTo
     };
 
-    this.addLog('🚀 Orden emitida a Extensión Mayansoft TT: "' + macroToUse.macroTitle + '" (' + macroToUse.tasks.length + ' tareas)', 'info');
-    console.log('%c🚀 [cmmi5-analyzer] Emitiendo orden de autollenado SAAO a la Extensión Mayansoft TT:', 'color:#6366f1;font-weight:bold;font-size:15px;', payload);
+    this.addLog('🚀 Orden emitida a Extensión SAAO: "' + macroToUse.macroTitle + '" (' + macroToUse.tasks.length + ' tareas)', 'info');
+    console.log('%c🚀 [cmmi5-analyzer] Emitiendo orden de autollenado SAAO a la Extensión SAAO:', 'color:#6366f1;font-weight:bold;font-size:15px;', payload);
 
     // 1. Disparar evento postMessage
     window.postMessage(payload, '*');
@@ -2263,7 +2230,7 @@ export class SprintProcessComponent implements OnInit {
     this.generateSaaoAutoScript(macroToUse);
   }
 
-  // Send Big Rock Order to Extension Mayansoft TT (EntregableForm)
+  // Send Big Rock Order to SAAO extension (EntregableForm)
   sendBigRockToExtension(macro?: SaaoMacroTask): void {
     const macroToUse = macro || this.saaoMacroTasks[0];
     if (!macroToUse) {
@@ -2281,10 +2248,10 @@ export class SprintProcessComponent implements OnInit {
       releaseName: macroToUse.releaseName,
       estimatedHours: macroToUse.estimatedHours || 4,
       estimatedMinutes: macroToUse.estimatedMinutes || 0,
-      assignedTo: 'georgina.chan'
+      assignedTo: this.saaoConfig.bigRockResponsible || this.userEmail.trim().toLowerCase()
     };
 
-    this.addLog('🧱 Orden de Big Rock emitida a Extensión Mayansoft TT: "' + macroToUse.macroTitle + '" (Responsable: georgina.chan)', 'info');
+    this.addLog('🧱 Orden de Big Rock emitida a Extensión SAAO: "' + macroToUse.macroTitle + '" (Responsable: ' + payload.assignedTo + ')', 'info');
     console.log('%c🧱 [cmmi5-analyzer] Emitiendo orden de Big Rock SAAO a la Extensión:', 'color:#f59e0b;font-weight:bold;font-size:15px;', payload);
 
     window.postMessage(payload, '*');
