@@ -643,7 +643,7 @@ export interface WiqlQueryResultRow {
                 </div>
 
                 <!-- Generic text input for other fields -->
-                <input *ngIf="clause.field !== 'System.WorkItemType' && clause.field !== 'System.AreaPath' && clause.field !== 'System.IterationPath'" [(ngModel)]="clause.value" (input)="buildWiqlFromClauses()" type="text" placeholder="Valor (ej: Marlon, Active, Closed)" class="glass-input w-full text-xs font-mono">
+                <input *ngIf="clause.field !== 'System.WorkItemType' && clause.field !== 'System.AreaPath' && clause.field !== 'System.IterationPath'" [(ngModel)]="clause.value" (input)="buildWiqlFromClauses()" type="text" placeholder="Valor (ej: Juan Pérez, Active, Closed)" class="glass-input w-full text-xs font-mono">
               </div>
 
               <!-- Remove button -->

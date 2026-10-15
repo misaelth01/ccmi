@@ -177,7 +177,7 @@ export class MetricsApiService {
       }
     }
 
-    // 1. INTENTO A: Usar la extensión de Chrome Mayansoft TT si está instalada en la pestaña (Sesión del navegador 100% activa)
+    // 1. INTENTO A: Usar la extensión de Chrome de SAAO si está instalada en la pestaña (Sesión del navegador 100% activa)
     const encodedListPath = encodeURIComponent(`'${actualListPath}'`);
     const encodedRoot = encodeURIComponent(actualRootFolder);
     const viewParam = actualViewId ? `&View=${actualViewId}` : '';

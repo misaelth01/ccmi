@@ -3063,7 +3063,7 @@ import { forkJoin, of, firstValueFrom } from 'rxjs';
           <textarea 
             [(ngModel)]="activeCommentText" 
             rows="5" 
-            placeholder="Escribe aquí las observaciones del sprint (ej. 'Se detectó una desviación del 12% debido a la incapacidad médica de Yair durante 3 días...')."
+            placeholder="Escribe aquí las observaciones del sprint (ej. 'Se detectó una desviación del 12% debido a la incapacidad médica de un integrante durante 3 días...')."
             class="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-sm font-medium focus:ring-2 focus:ring-indigo-500 transition-all outline-none leading-relaxed text-slate-700 dark:text-slate-200 placeholder-slate-400">
           </textarea>
         </div>
